@@ -13,6 +13,7 @@ module input_xml
   use random_lcg,       only: prn
   use string,           only: lower_case, to_str, str_to_int, str_to_real, &
                               starts_with, ends_with
+  use tally_new,        only: read_tallies_new
   use tally_header,     only: TallyObject, TallyFilter
   use tally_initialize, only: add_tallies
   use xml_interface
@@ -38,6 +39,7 @@ contains
     call read_materials_xml()
     call read_tallies_xml()
     if (cmfd_run) call configure_cmfd()
+    call read_tallies_new()
 
   end subroutine read_input_xml
 
