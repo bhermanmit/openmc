@@ -3,6 +3,8 @@ module tally_filter_class
   use constants
 
   implicit none
+  private
+  public :: TallyFilter_p, EnergyFilter
 
   ! General tally filter type
   type, abstract :: TallyFilter
@@ -23,6 +25,11 @@ module tally_filter_class
       class(TallyFilter) :: self
     end subroutine tally_filter_destroy
   end interface
+
+  ! Tally filter pointer
+  type :: TallyFilter_p
+    class(TallyFilter), pointer :: p => null()
+  end type TallyFilter_p
 
   ! Energy filter
   type, extends(TallyFilter) :: EnergyFilter
