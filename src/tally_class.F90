@@ -5,7 +5,7 @@ module tally_class
 
   implicit none
   private
-  public :: TallyClass
+  public :: Tally_p
 
   ! General tally
   type, abstract :: TallyClass

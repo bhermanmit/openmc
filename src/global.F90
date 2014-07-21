@@ -15,6 +15,8 @@ module global
   use tally_header,     only: TallyObject, TallyMap, TallyResult
   use timer_header,     only: Timer
 
+  use tally_class
+
 #ifdef HDF5
   use hdf5_interface,  only: HID_T
 #endif
@@ -96,6 +98,7 @@ module global
 
   type(StructuredMesh), allocatable, target :: meshes(:)
   type(TallyObject),    allocatable, target :: tallies(:)
+  type(Tally_p), allocatable, target :: tallies_new(:)
   integer, allocatable :: matching_bins(:)
 
   ! Pointers for different tallies
