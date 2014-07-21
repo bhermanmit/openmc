@@ -4,7 +4,8 @@ module tally_new
   use global
   use output,           only: write_message
   use string
-  use tally_class,      only: AnalogTallyClass
+  use tally_class
+  use tally_filter_class
   use xml_interface
 
   implicit none
@@ -24,6 +25,7 @@ module tally_new
     integer :: n_filters     ! number of filters
     integer :: n_words       ! number of words read
     logical :: file_exists
+    real(8), allocatable :: real_bins(:)
     type(Node), pointer :: doc => null()
     type(Node), pointer :: node_mesh => null()
     type(Node), pointer :: node_tal => null()
@@ -31,6 +33,8 @@ module tally_new
     type(NodeList), pointer :: node_mesh_list => null()
     type(NodeList), pointer :: node_tal_list => null()
     type(NodeList), pointer :: node_filt_list => null()
+    type(Tally_p), pointer :: t => null()
+    class(TallyFilterClass), pointer :: f => null()
 
     ! Check if tallies.xml exists
     filename = trim(path_input) // "tallies.xml"
@@ -66,6 +70,9 @@ module tally_new
       ! Get pointer to tally xml node
       call get_list_item(node_tal_list, i, node_tal)
 
+      ! Set pointer to tallies_new position
+      t => tallies_new(i)
+
       ! Check if user specified estimator
       if (check_for_node(node_tal, "estimator")) then
         temp_str = ''
@@ -77,7 +84,7 @@ module tally_new
       ! Allocate tally pointer
       select case(trim(temp_str))
       case ('analog')
-        tallies_new(i) % p  => AnalogTallyClass()
+        t % p  => AnalogTallyClass()
       case ('tracklength', 'track-length', 'pathlength', 'path-length')
         message = "Invalid estimator '" // trim(temp_str) &
              // "' on tally "
@@ -92,8 +99,12 @@ module tally_new
       call get_node_list(node_tal, "filter", node_filt_list)
       n_filters = get_list_size(node_filt_list)
 
-      ! Proces filters
+      ! Process filters
       if (n_filters /= 0) then
+
+        ! Allocate filters in tally instance
+        call t % p % allocate_filters(n_filters)
+
         READ_FILTERS: do j = 1, n_filters
 
           ! Get pointer to filter xml node
@@ -122,6 +133,15 @@ module tally_new
           select case (temp_str)
           case ('energy')
 
+            ! Allocate an energy filter
+            f => EnergyFilterClass()
+
+            ! Read in bins and set to filter
+            allocate(real_bins(n_words - 1))
+            call get_node_array(node_filt, "bins", real_bins)
+            call f % set_bins(n_words - 1, real_bins)
+            deallocate(real_bins)
+ 
           case default
             ! Specified tally filter is invalid, raise error
             message = "Unknown filter type '" // &
@@ -129,6 +149,9 @@ module tally_new
             call fatal_error()
 
           end select
+
+          ! Add filter to tally instance
+          t % p % add_filter(f)
 
         end do READ_FILTERS
       end if

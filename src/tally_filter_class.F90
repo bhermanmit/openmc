@@ -4,42 +4,42 @@ module tally_filter_class
 
   implicit none
   private
-  public :: TallyFilter_p, EnergyFilter
+  public :: TallyFilter_p, TallyFilterClass, EnergyFilterClass
 
   ! General tally filter type
-  type, abstract :: TallyFilter
+  type, abstract :: TallyFilterClass
     private
     integer :: type    ! Type of filter from constants
-    integer :: stride  ! Stride in tally results
     contains
       procedure, public :: set_type
       procedure, public :: get_type
-      procedure, public :: set_stride
-      procedure, public :: get_stride
-      procedure (tally_filter_destroy), deferred :: destroy 
-  end type TallyFilter
+      procedure (filter_destroy), deferred :: destroy 
+  end type TallyFilterClass
 
   abstract interface
-    subroutine tally_filter_destroy(self)
-      import TallyFilter
-      class(TallyFilter) :: self
-    end subroutine tally_filter_destroy
+    subroutine filter_destroy(self)
+      import TallyFilterClass
+      class(TallyFilterClass) :: self
+    end subroutine filter_destroy
   end interface
 
   ! Tally filter pointer
   type :: TallyFilter_p
-    class(TallyFilter), pointer :: p => null()
+    class(TallyFilterClass), pointer :: p => null()
   end type TallyFilter_p
 
   ! Energy filter
-  type, extends(TallyFilter) :: EnergyFilter
+  type, extends(TallyFilterClass) :: EnergyFilterClass
     private
     integer :: n_bins
     real(8), allocatable :: bins(:)
     contains
       procedure, public :: set_bins => set_energy_bins
       procedure, public :: destroy => energy_filter_destroy
-  end type EnergyFilter
+  end type EnergyFilterClass
+  interface EnergyFilterClass
+    module procedure energy_filter_init
+  end interface
 
   contains
 
@@ -54,38 +54,28 @@ module tally_filter_class
 !===============================================================================
 
   subroutine set_type(self, type)
-    class(TallyFilter) :: self
+
+    class(TallyFilterClass) :: self
     integer :: type
+
+    ! Set the type to instance
     self % type = type
+
   end subroutine set_type
 
 !===============================================================================
 ! GET_TYPE returns the member type from TallyClass instance
 !===============================================================================
 
-  integer function get_type(self) result(type)
-    class(TallyFilter) :: self
+  function get_type(self) result(type)
+
+    class(TallyFilterClass) :: self
+    integer :: type
+
+    ! Get the type from instance
     type = self % type
+
   end function get_type
-
-!===============================================================================
-! SET_STRIDE sets the member stride in TallyClass instance
-!===============================================================================
-
-  subroutine set_stride(self, stride)
-    class(TallyFilter) :: self
-    integer :: stride
-    self % stride = stride
-  end subroutine set_stride
-
-!===============================================================================
-! GET_STRIDE returns the member stride from TallyClass instance
-!===============================================================================
-
-  integer function get_stride(self) result(stride)
-    class(TallyFilter) :: self
-    stride = self % stride
-  end function get_stride
 
 !*******************************************************************************
 !*******************************************************************************
@@ -94,15 +84,20 @@ module tally_filter_class
 !*******************************************************************************
 
 !===============================================================================
-! INIT_ENERGY_FILTER
+! ENERGY_FILTER_INIT
 !===============================================================================
 
-  type(EnergyFilter) function init_energy_filter() result(self)
+  function energy_filter_init() result(self)
 
-    ! Set up the type
+    class(EnergyFilterClass), pointer :: self
+
+    ! Create object
+    allocate(self)
+
+    ! Set type of filter
     call self % set_type(FILTER_ENERGYIN)
-    
-  end function init_energy_filter
+
+  end function energy_filter_init
 
 !===============================================================================
 ! SET_ENERGY_BINS
@@ -110,12 +105,13 @@ module tally_filter_class
 
   subroutine set_energy_bins(self, n_bins, bins)
 
-    class(EnergyFilter) :: self
+    class(EnergyFilterClass) :: self
     integer :: n_bins
     real(8) :: bins(:)
 
-    ! Set up energy bins
+    ! Allocate number of bins and set information to instance
     allocate(self % bins(n_bins))
+    self % n_bins = n_bins
     self % bins = bins
 
   end subroutine set_energy_bins
@@ -126,9 +122,9 @@ module tally_filter_class
 
   subroutine energy_filter_destroy(self)
 
-    class(EnergyFilter) :: self
+    class(EnergyFilterClass) :: self
 
-    ! Deallocate bin information
+    ! Free memory associated with energy filter
     deallocate(self % bins)
 
   end subroutine energy_filter_destroy
