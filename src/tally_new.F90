@@ -137,9 +137,9 @@ module tally_new
             f => EnergyFilterClass()
 
             ! Read in bins and set to filter
-            allocate(real_bins(n_words - 1))
+            allocate(real_bins(n_words))
             call get_node_array(node_filt, "bins", real_bins)
-            call f % set_bins(n_words - 1, real_bins)
+            call f % set_bins(n_words, real_bins)
             deallocate(real_bins)
  
           case default
@@ -151,7 +151,7 @@ module tally_new
           end select
 
           ! Add filter to tally instance
-          t % p % add_filter(f)
+!         t % p % add_filter(f)
 
         end do READ_FILTERS
       end if
