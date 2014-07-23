@@ -6,6 +6,7 @@ module tally_new
   use string
   use tally_class
   use tally_filter_class
+  use tally_score_class
   use xml_interface
 
   implicit none
@@ -20,21 +21,24 @@ module tally_new
 
     character(MAX_LINE_LEN) :: filename
     character(MAX_WORD_LEN) :: temp_str
+    character(MAX_WORD_LEN), allocatable :: sarray(:)
+    class(TallyClass), pointer :: t => null()
+    class(TallyFilterClass), pointer :: f => null()
+    class(TallyScoreClass), pointer :: s => null()
     integer :: i
     integer :: j
     integer :: n_filters     ! number of filters
     integer :: n_words       ! number of words read
+    integer :: n_scores      ! number of scores
     logical :: file_exists
     real(8), allocatable :: real_bins(:)
     type(Node), pointer :: doc => null()
+    type(Node), pointer :: node_filt => null()
     type(Node), pointer :: node_mesh => null()
     type(Node), pointer :: node_tal => null()
-    type(Node), pointer :: node_filt => null()
+    type(NodeList), pointer :: node_filt_list => null()
     type(NodeList), pointer :: node_mesh_list => null()
     type(NodeList), pointer :: node_tal_list => null()
-    type(NodeList), pointer :: node_filt_list => null()
-    type(Tally_p), pointer :: t => null()
-    class(TallyFilterClass), pointer :: f => null()
 
     ! Check if tallies.xml exists
     filename = trim(path_input) // "tallies.xml"
@@ -71,7 +75,7 @@ module tally_new
       call get_list_item(node_tal_list, i, node_tal)
 
       ! Set pointer to tallies_new position
-      t => tallies_new(i)
+      t => tallies_new(i) % p
 
       ! Check if user specified estimator
       if (check_for_node(node_tal, "estimator")) then
@@ -84,7 +88,7 @@ module tally_new
       ! Allocate tally pointer
       select case(trim(temp_str))
       case ('analog')
-        t % p  => AnalogTallyClass()
+        t => AnalogTallyClass()
       case ('tracklength', 'track-length', 'pathlength', 'path-length')
         message = "Invalid estimator '" // trim(temp_str) &
              // "' on tally "
@@ -103,7 +107,7 @@ module tally_new
       if (n_filters /= 0) then
 
         ! Allocate filters in tally instance
-        call t % p % allocate_filters(n_filters)
+        call t % allocate_filters(n_filters)
 
         READ_FILTERS: do j = 1, n_filters
 
@@ -143,6 +147,7 @@ module tally_new
             deallocate(real_bins)
  
           case default
+
             ! Specified tally filter is invalid, raise error
             message = "Unknown filter type '" // &
                  trim(temp_str) // "' on tally "
@@ -151,11 +156,60 @@ module tally_new
           end select
 
           ! Add filter to tally instance
-          call t % p % add_filter(f)
+          call t % add_filter(f)
 
         end do READ_FILTERS
       end if
- 
+
+      ! Process tally scores
+      if (check_for_node(node_tal, "scores")) then
+
+        ! Read string array from input
+        n_words = get_arraysize_string(node_tal, "scores")
+        allocate(sarray(n_words))
+        call get_node_array(node_tal, "scores", sarray)
+
+        ! Handle moment stuff here in future
+
+        ! Allocate scores
+        n_scores = n_words
+        call t % allocate_scores(n_scores)
+
+        ! Loop arounds scores and initialize
+        READ_SCORES: do j = 1, n_scores
+
+          call lower_case(sarray(j))
+          select case(sarray(j))
+          case('total')
+
+            ! Allocate a total score
+            s => TotalScoreClass() 
+
+          case default
+
+            ! Specified tally score is invalid, raise error
+            message = "Unknown score type '" // &
+                 trim(sarray(j)) // "' on tally "
+            call fatal_error()
+          
+          end select
+
+          ! Add score to tally instance
+          call t % add_score(s)
+
+        end do READ_SCORES
+
+        ! Deallocate temporary string array of scores
+        deallocate(sarray)
+
+      else
+
+        ! Error if there are no scores specified for a tally
+        message = "No <scores> specified on tally "
+        call fatal_error()
+
+      end if
+
     end do READ_TALLIES
 
     ! Close xml file

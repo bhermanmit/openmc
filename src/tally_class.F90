@@ -3,6 +3,7 @@ module tally_class
   use constants
   use tally_filter_class 
   use tally_result_class
+  use tally_score_class 
 
   implicit none
   private
@@ -12,6 +13,7 @@ module tally_class
   type, abstract :: TallyClass
     private
     integer :: i_filter = 1  ! Current filter
+    integer :: i_score = 1  ! Current score
     integer :: n_filters ! Number of filters
     integer :: n_scores ! Number of scores
     integer :: total_score_bins ! Total number of score bins
@@ -19,11 +21,14 @@ module tally_class
     integer :: type ! Type of tally from constants
     type(TallyFilter_p), allocatable :: filters(:) ! Polymorphic array of filter objects
     type(TallyResultClass), allocatable :: results(:,:) ! Array of result objects
+    type(TallyScore_p), allocatable :: scores(:) ! Polymorphic array of filter objects
     contains
       procedure, public :: add_filter
+      procedure, public :: add_score
       procedure, public :: allocate_filters
-      procedure, public :: destroy => tally_destroy
       procedure :: allocate_results
+      procedure :: allocate_scores
+      procedure, public :: destroy => tally_destroy
       procedure, public :: set_type
   end type TallyClass
 
@@ -51,7 +56,7 @@ module tally_class
 !*******************************************************************************
 
 !===============================================================================
-! ADD_FILTER adds a filter to tally array
+! ADD_FILTER adds a filter to tally filter array
 !===============================================================================
 
   subroutine add_filter(self, filter)
@@ -64,6 +69,21 @@ module tally_class
     self % i_filter = self % i_filter + 1
 
   end subroutine add_filter
+
+!===============================================================================
+! ADD_SCORE adds a score to tally score array
+!===============================================================================
+
+  subroutine add_score(self, score)
+
+    class(TallyClass), intent(inout) :: self
+    class(TallyScoreClass), pointer, intent(in) :: score
+
+    ! Set filter to array
+    self % scores(self % i_score) % p => score
+    self % i_score = self % i_score + 1
+
+  end subroutine add_score
 
 !===============================================================================
 ! ALLOCATE_FILTERS allocates the filters array in TallyClass instance
@@ -90,6 +110,20 @@ module tally_class
     allocate(self % results(self % total_score_bins, self % total_filter_bins))
     
   end subroutine allocate_results
+
+!===============================================================================
+! ALLOCATE_SCORES allocates the scores array in TallyClass instance
+!===============================================================================
+
+  subroutine allocate_scores(self, n_scores)
+
+    class(TallyClass), intent(inout) :: self
+    integer, intent(in) :: n_scores
+
+    self % n_scores = n_scores
+    allocate(self % scores(n_scores))
+    
+  end subroutine allocate_scores
 
 !===============================================================================
 ! TALLY_DESTROY frees all memory used by TallyClass
