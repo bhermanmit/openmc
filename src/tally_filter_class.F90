@@ -30,7 +30,6 @@ module tally_filter_class
   ! Energy filter
   type, extends(TallyFilterClass) :: EnergyFilterClass
     private
-!     procedure, public :: destroy => energy_filter_destroy
   end type EnergyFilterClass
   interface EnergyFilterClass
     module procedure energy_filter_init
@@ -50,8 +49,8 @@ module tally_filter_class
 
   subroutine set_type(self, type)
 
-    class(TallyFilterClass) :: self
-    integer :: type
+    class(TallyFilterClass), intent(inout) :: self
+    integer, intent(in) :: type
 
     ! Set the type to instance
     self % type = type
@@ -78,9 +77,9 @@ module tally_filter_class
 
   subroutine set_int_bins(self, n_bins, bins)
 
-    class(TallyFilterClass) :: self
-    integer :: n_bins
-    integer :: bins(:)
+    class(TallyFilterClass), intent(inout) :: self
+    integer, intent(in) :: n_bins
+    integer, intent(in) :: bins(:)
 
     self % n_bins = n_bins
     allocate(self % int_bins(n_bins))
@@ -94,14 +93,14 @@ module tally_filter_class
 
   subroutine set_real_bins(self, n_bins, bins)
 
-    class(TallyFilterClass) :: self
-    integer :: n_bins
-    real(8) :: bins(:)
+    class(TallyFilterClass), intent(inout) :: self
+    integer, intent(in) :: n_bins
+    real(8), intent(in) :: bins(:)
 
     self % n_bins = n_bins
     allocate(self % real_bins(n_bins))
     self % real_bins = bins
-    print *, "In real bins"
+
   end subroutine set_real_bins
 
 !===============================================================================
@@ -110,7 +109,7 @@ module tally_filter_class
 
   subroutine tally_filter_destroy(self)
 
-    class(TallyFilterClass) :: self
+    class(TallyFilterClass), intent(inout) :: self
 
     if (allocated(self % int_bins)) deallocate(self % int_bins)
     if (allocated(self % real_bins)) deallocate(self % real_bins)

@@ -163,4 +163,18 @@ module tally_new
 
   end subroutine read_tallies_new
 
+!===============================================================================
+! DESTROY_TALLIES_NEW frees all new tallies memory
+!===============================================================================
+
+  subroutine destroy_tallies_new()
+
+    integer :: i
+
+    do i = 1, n_user_tallies
+      call tallies_new(i) % p % destroy()
+    end do
+
+  end subroutine destroy_tallies_new
+
 end module tally_new
