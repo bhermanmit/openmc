@@ -19,15 +19,8 @@ module tally_filter_class
       generic, public :: set_bins => set_int_bins, set_real_bins
       procedure :: set_int_bins
       procedure :: set_real_bins 
-      procedure (filter_destroy), deferred :: destroy 
+      procedure, public :: destroy => tally_filter_destroy
   end type TallyFilterClass
-
-  abstract interface
-    subroutine filter_destroy(self)
-      import TallyFilterClass
-      class(TallyFilterClass) :: self
-    end subroutine filter_destroy
-  end interface
 
   ! Tally filter pointer
   type :: TallyFilter_p
@@ -37,9 +30,7 @@ module tally_filter_class
   ! Energy filter
   type, extends(TallyFilterClass) :: EnergyFilterClass
     private
-    contains
-      procedure :: set_real_bins => set_energy_bins
-      procedure, public :: destroy => energy_filter_destroy
+!     procedure, public :: destroy => energy_filter_destroy
   end type EnergyFilterClass
   interface EnergyFilterClass
     module procedure energy_filter_init
@@ -81,6 +72,10 @@ module tally_filter_class
 
   end function get_type
 
+!===============================================================================
+! SET_INT_BINS allocates and sets filter bins that are integers
+!===============================================================================
+
   subroutine set_int_bins(self, n_bins, bins)
 
     class(TallyFilterClass) :: self
@@ -92,6 +87,10 @@ module tally_filter_class
     self % int_bins = bins
 
   end subroutine set_int_bins
+
+!===============================================================================
+! SET_REAL_BINS allocates and sets filter bins that are reals
+!===============================================================================
 
   subroutine set_real_bins(self, n_bins, bins)
 
@@ -105,18 +104,18 @@ module tally_filter_class
     print *, "In real bins"
   end subroutine set_real_bins
 
-  subroutine set_energy_bins(self, n_bins, bins)
+!===============================================================================
+! TALLY_FILTER_DESTROY deallocates all members of TallyFilterClass
+!===============================================================================
 
-    class(EnergyFilterClass) :: self
-    integer :: n_bins
-    real(8) :: bins(:)
+  subroutine tally_filter_destroy(self)
 
-    self % n_bins = n_bins
-    allocate(self % real_bins(n_bins))
-    self % real_bins = bins
-    print *, "In custom energy routine"
+    class(TallyFilterClass) :: self
 
-  end subroutine set_energy_bins
+    if (allocated(self % int_bins)) deallocate(self % int_bins)
+    if (allocated(self % real_bins)) deallocate(self % real_bins)
+
+  end subroutine tally_filter_destroy
 
 !*******************************************************************************
 !*******************************************************************************
@@ -125,7 +124,7 @@ module tally_filter_class
 !*******************************************************************************
 
 !===============================================================================
-! ENERGY_FILTER_INIT
+! ENERGY_FILTER_INIT allocates and sets up an EnergyFilterClass instance
 !===============================================================================
 
   function energy_filter_init() result(self)
@@ -139,35 +138,5 @@ module tally_filter_class
     call self % set_type(FILTER_ENERGYIN)
 
   end function energy_filter_init
-
-!===============================================================================
-! SET_ENERGY_BINS
-!===============================================================================
-
-! subroutine set_energy_bins(self, n_bins, bins)
-
-!   class(EnergyFilterClass) :: self
-!   integer :: n_bins
-!   real(8) :: bins(:)
-
-    ! Allocate number of bins and set information to instance
-!   allocate(self % bins(n_bins))
-!   self % n_bins = n_bins
-!   self % bins = bins
-
-! end subroutine set_energy_bins
-
-!===============================================================================
-! ENERGY_FILTER_DESTROY
-!===============================================================================
-
-  subroutine energy_filter_destroy(self)
-
-    class(EnergyFilterClass) :: self
-
-    ! Free memory associated with energy filter
-!   deallocate(self % bins)
-
-  end subroutine energy_filter_destroy
 
 end module tally_filter_class

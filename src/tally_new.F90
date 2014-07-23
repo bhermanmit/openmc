@@ -151,7 +151,7 @@ module tally_new
           end select
 
           ! Add filter to tally instance
-!         t % p % add_filter(f)
+          call t % p % add_filter(f)
 
         end do READ_FILTERS
       end if

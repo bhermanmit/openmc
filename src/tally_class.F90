@@ -75,6 +75,8 @@ module tally_class
 
     class(TallyClass) :: self
     class(TallyFilterClass), pointer :: filter
+
+    ! Set filter to array
     self % filters(self % i_filter) % p => filter
     self % i_filter = self % i_filter + 1
 
