@@ -13,7 +13,18 @@ module tally_score_class
     contains
       procedure, public :: set_type
       procedure, public :: get_type
+      procedure(score_match_interface), deferred :: score_match
   end type TallyScoreClass
+
+  ! Abstract interface for deferred procedures
+  abstract interface
+    function score_match_interface(self, event) result(match)
+      import TallyScoreClass
+      class(TallyScoreClass) :: self
+      integer :: event
+      logical :: match
+    end function score_match_interface
+  end interface
 
   ! Tally score pointer
   type :: TallyScore_p
@@ -23,6 +34,8 @@ module tally_score_class
   ! Total score type
   type, extends(TallyScoreClass) :: TotalScoreClass
     private
+    contains
+      procedure, public :: score_match => total_score_match
   end type TotalScoreClass
   interface TotalScoreClass
     module procedure total_score_init
@@ -95,5 +108,20 @@ module tally_score_class
     call self % set_type(SCORE_TOTAL)
 
   end function total_score_init
+
+!===============================================================================
+! TOTAL_SCORE_MATCH results a true such that this tally is always scored
+!===============================================================================
+
+  function total_score_match(self, event) result(match)
+
+    class(TotalScoreClass) :: self
+    integer :: event
+    logical :: match
+
+    ! Should evaluate to true always
+    match = (event == EVENT_SCATTER) .or. (event /= EVENT_SCATTER)
+
+  end function total_score_match
 
 end module tally_score_class
