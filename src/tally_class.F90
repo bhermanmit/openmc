@@ -1,6 +1,7 @@
 module tally_class
 
   use constants
+  use particle_header
   use tally_filter_class 
   use tally_result_class
   use tally_score_class 
@@ -30,7 +31,17 @@ module tally_class
       procedure, public :: destroy => tally_destroy
       procedure, public :: finish_setup
       procedure, public :: set_type
+      procedure(tally_score), deferred :: score
   end type TallyClass
+
+  abstract interface
+    subroutine tally_score(self, p)
+      import TallyClass
+      import Particle
+      class(TallyClass) ::  self
+      type(Particle) :: p
+    end subroutine tally_score
+  end interface
 
   ! Tally pointer type
   type, public :: Tally_p
@@ -40,6 +51,8 @@ module tally_class
   ! Analog tally 
   type, extends(TallyClass), public :: AnalogTallyClass
     private
+    contains
+      procedure, public :: score => analog_tally_score
   end type AnalogTallyClass
 
   ! Constructor call
@@ -201,5 +214,24 @@ module tally_class
     call self % set_type(ESTIMATOR_ANALOG)
 
   end function analog_tally_init
+
+!===============================================================================
+! ANALOG_TALLY_SCORE performs a score for an analog tally
+!===============================================================================
+
+  subroutine analog_tally_score(self, p)
+
+    class(AnalogTallyClass) :: self
+    type(Particle) :: p
+
+    ! Get filter index
+
+    ! Get score index
+
+    ! Calculate score 
+
+    ! Perform the score to results array
+
+  end subroutine analog_tally_score
 
 end module tally_class
