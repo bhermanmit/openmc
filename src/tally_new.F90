@@ -3,6 +3,7 @@ module tally_new
   use error,            only: fatal_error, warning
   use global
   use output,           only: write_message
+  use particle_header
   use string
   use tally_class
   use tally_filter_class
@@ -74,9 +75,6 @@ module tally_new
       ! Get pointer to tally xml node
       call get_list_item(node_tal_list, i, node_tal)
 
-      ! Set pointer to tallies_new position
-      t => tallies_new(i) % p
-
       ! Check if user specified estimator
       if (check_for_node(node_tal, "estimator")) then
         temp_str = ''
@@ -88,7 +86,7 @@ module tally_new
       ! Allocate tally pointer
       select case(trim(temp_str))
       case ('analog')
-        t => AnalogTallyClass()
+        tallies_new(i) % p => AnalogTallyClass()
       case ('tracklength', 'track-length', 'pathlength', 'path-length')
         message = "Invalid estimator '" // trim(temp_str) &
              // "' on tally "
@@ -98,6 +96,7 @@ module tally_new
              // "' on tally "
         call fatal_error()
       end select
+      t => tallies_new(i) % p
 
       ! Get pointer list to XML <filter> and get number of filters
       call get_node_list(node_tal, "filter", node_filt_list)
@@ -219,6 +218,23 @@ module tally_new
     call close_xmldoc(doc)
 
   end subroutine read_tallies_new
+
+!===============================================================================
+! SCORE_ANALOG_TALLIES_NEW
+!===============================================================================
+
+  subroutine score_analog_tallies_new(p)
+
+    type(Particle) :: p
+
+    integer :: i
+
+    ! Loop around tallies and score
+    do i = 1, n_tallies
+      call tallies_new(i) % p % score(p)
+    end do
+
+  end subroutine score_analog_tallies_new
 
 !===============================================================================
 ! DESTROY_TALLIES_NEW frees all new tallies memory

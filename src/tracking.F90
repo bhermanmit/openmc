@@ -13,6 +13,7 @@ module tracking
   use string,          only: to_str
   use tally,           only: score_analog_tally, score_tracklength_tally, &
                              score_surface_current
+  use tally_new
   use track_output,    only: initialize_particle_track, write_particle_track, &
                              finalize_particle_track
 
@@ -162,6 +163,7 @@ contains
         ! outgoing energy for any tallies with an outgoing energy filter
 
         if (active_analog_tallies % size() > 0) call score_analog_tally(p)
+        call score_analog_tallies_new(p)
 
         ! Reset banked weight during collision
         p % n_bank   = 0
