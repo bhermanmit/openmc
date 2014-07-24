@@ -210,6 +210,9 @@ module tally_new
 
       end if
 
+      ! Finish tally setup
+      call t % finish_setup()
+
     end do READ_TALLIES
 
     ! Close xml file

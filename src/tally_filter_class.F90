@@ -4,31 +4,31 @@ module tally_filter_class
 
   implicit none
   private
-  public :: TallyFilter_p, TallyFilterClass, EnergyFilterClass
 
   ! General tally filter type
-  type, abstract :: TallyFilterClass
+  type, abstract, public :: TallyFilterClass
     private
     integer :: type    ! Type of filter from constants
     integer :: n_bins
     integer, allocatable :: int_bins(:)
     real(8), allocatable :: real_bins(:)
     contains
-      procedure, public :: set_type
+      procedure, public :: get_n_bins
       procedure, public :: get_type
-      generic, public :: set_bins => set_int_bins, set_real_bins
+      procedure, public :: set_type
       procedure :: set_int_bins
       procedure :: set_real_bins 
+      generic, public :: set_bins => set_int_bins, set_real_bins
       procedure, public :: destroy => tally_filter_destroy
   end type TallyFilterClass
 
   ! Tally filter pointer
-  type :: TallyFilter_p
+  type, public :: TallyFilter_p
     class(TallyFilterClass), pointer :: p => null()
   end type TallyFilter_p
 
   ! Energy filter
-  type, extends(TallyFilterClass) :: EnergyFilterClass
+  type, extends(TallyFilterClass), public :: EnergyFilterClass
     private
   end type EnergyFilterClass
   interface EnergyFilterClass
@@ -42,6 +42,19 @@ module tally_filter_class
 ! General abstract tally methods
 !*******************************************************************************
 !*******************************************************************************
+
+!===============================================================================
+! GET_N_BINS returns the number of bins for TallyFilterClass instance
+!===============================================================================
+
+  function get_n_bins(self) result(n_bins)
+
+    class(TallyFilterClass) :: self
+    integer :: n_bins
+
+    n_bins = self % n_bins
+
+  end function get_n_bins
 
 !===============================================================================
 ! SET_TYPE sets the member type in TallyClass instance

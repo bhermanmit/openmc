@@ -7,17 +7,16 @@ module tally_class
 
   implicit none
   private
-  public :: Tally_p, TallyClass, AnalogTallyClass
 
   ! General tally
-  type, abstract :: TallyClass
+  type, abstract, public :: TallyClass
     private
     integer :: i_filter = 1  ! Current filter
     integer :: i_score = 1  ! Current score
-    integer :: n_filters ! Number of filters
-    integer :: n_scores ! Number of scores
-    integer :: total_score_bins ! Total number of score bins
-    integer :: total_filter_bins ! Total number of filter bins
+    integer :: n_filters = ZERO ! Number of filters
+    integer :: n_scores = ZERO ! Number of scores
+    integer :: total_score_bins = ZERO ! Total number of score bins
+    integer :: total_filter_bins = ZERO ! Total number of filter bins
     integer :: type ! Type of tally from constants
     type(TallyFilter_p), allocatable :: filters(:) ! Polymorphic array of filter objects
     type(TallyResultClass), allocatable :: results(:,:) ! Array of result objects
@@ -27,18 +26,19 @@ module tally_class
       procedure, public :: add_score
       procedure, public :: allocate_filters
       procedure :: allocate_results
-      procedure :: allocate_scores
+      procedure, public :: allocate_scores
       procedure, public :: destroy => tally_destroy
+      procedure, public :: finish_setup
       procedure, public :: set_type
   end type TallyClass
 
   ! Tally pointer type
-  type :: Tally_p
+  type, public :: Tally_p
     class(TallyClass), pointer :: p => null()
   end type Tally_p
 
   ! Analog tally 
-  type, extends(TallyClass) :: AnalogTallyClass
+  type, extends(TallyClass), public :: AnalogTallyClass
     private
   end type AnalogTallyClass
 
@@ -145,6 +145,28 @@ module tally_class
     if (allocated(self % results)) deallocate(self % results)
 
   end subroutine tally_destroy
+
+!===============================================================================
+! FINISH_SETUP finishes the rest of initialization for TallyClass
+!===============================================================================
+
+  subroutine finish_setup(self)
+
+    class(TallyClass) :: self
+
+    integer :: i
+
+    ! Set total number of filter bins and scores
+    do i = 1, self % n_filters 
+      self % total_filter_bins = self % total_filter_bins + &
+                                 self % filters(i) % p % get_n_bins()
+    end do 
+    self % total_score_bins = self % n_scores
+
+    ! Allocate results array
+    call self % allocate_results()
+
+  end subroutine finish_setup
 
 !===============================================================================
 ! SET_TYPE sets the member type in TallyClass instance
