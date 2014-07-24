@@ -19,6 +19,8 @@ module tally_class
     integer :: total_score_bins = ZERO ! Total number of score bins
     integer :: total_filter_bins = ZERO ! Total number of filter bins
     integer :: type ! Type of tally from constants
+    integer, allocatable :: stride(:)
+    integer, allocatable :: matching_bins(:)
     type(TallyFilter_p), allocatable :: filters(:) ! Polymorphic array of filter objects
     type(TallyResultClass), allocatable :: results(:,:) ! Array of result objects
     type(TallyScore_p), allocatable :: scores(:) ! Polymorphic array of filter objects
@@ -30,6 +32,8 @@ module tally_class
       procedure, public :: allocate_scores
       procedure, public :: destroy => tally_destroy
       procedure, public :: finish_setup
+      procedure :: get_filter_index
+      procedure :: setup_stride
       procedure, public :: set_type
       procedure(tally_score), deferred :: score
   end type TallyClass
@@ -157,6 +161,12 @@ module tally_class
     ! Destroy tally results
     if (allocated(self % results)) deallocate(self % results)
 
+    ! Destroy stride array
+    if (allocated(self % stride)) deallocate(self % stride)
+
+    ! Destroy matching bins array
+    if (allocated(self % matching_bins)) deallocate(self % matching_bins)
+
   end subroutine tally_destroy
 
 !===============================================================================
@@ -179,7 +189,59 @@ module tally_class
     ! Allocate results array
     call self % allocate_results()
 
+    ! Set up stride array
+    call self % setup_stride()
+
   end subroutine finish_setup
+
+!===============================================================================
+! GET_FILTER_INDEX
+!===============================================================================
+
+ function get_filter_index(self, p) result(filter_index)
+
+    class(TallyClass) :: self
+    type(Particle) :: p
+    integer :: filter_index
+
+    integer :: i
+
+    ! Loop through tally filters
+    do i = 1, self % n_filters
+      self % matching_bins(i) = self % filters(i) % p % get_filter_index(p)
+    end do
+
+    ! Calculate overall filter index
+    filter_index = sum((self % matching_bins - 1) * self % stride) + 1
+
+ end function get_filter_index
+
+!===============================================================================
+! SETUP_STRIDE
+!===============================================================================
+
+  subroutine setup_stride(self)
+
+    class(TallyClass) :: self
+
+    integer :: j
+    integer :: n
+
+    ! Allocate stride array and matching bins
+    allocate(self % stride(self % n_filters))
+    allocate(self % matching_bins(self % n_filters))
+
+    ! The filters are traversed in opposite order so that the last filter has
+    ! the shortest stride in memory and the first filter has the largest
+    ! stride
+
+    n = 1
+    do j = self % n_filters, 1, -1
+      self % stride(j) = n
+      n = n * self % filters(j) % p % get_n_bins()
+    end do
+    
+  end subroutine setup_stride
 
 !===============================================================================
 ! SET_TYPE sets the member type in TallyClass instance
@@ -224,7 +286,10 @@ module tally_class
     class(AnalogTallyClass) :: self
     type(Particle) :: p
 
+    integer :: filter_index
+
     ! Get filter index
+    filter_index = self % get_filter_index(p)
 
     ! Get score index
 
