@@ -1,6 +1,7 @@
 module tally_score_class
 
   use constants
+  use particle_header, only: Particle
 
   implicit none
   private
@@ -14,6 +15,7 @@ module tally_score_class
       procedure, public :: set_type
       procedure, public :: get_type
       procedure(score_match_interface), deferred :: score_match
+      procedure(get_score_interface), deferred :: get_score
   end type TallyScoreClass
 
   ! Abstract interface for deferred procedures
@@ -24,6 +26,13 @@ module tally_score_class
       integer :: event
       logical :: match
     end function score_match_interface
+    function get_score_interface(self, p) result(score)
+      import TallyScoreClass
+      import Particle
+      class(TallyScoreClass) :: self
+      type(Particle) :: p
+      real(8) :: score
+    end function get_score_interface
   end interface
 
   ! Tally score pointer
@@ -36,6 +45,7 @@ module tally_score_class
     private
     contains
       procedure, public :: score_match => total_score_match
+      procedure, public :: get_score => total_get_score
   end type TotalScoreClass
   interface TotalScoreClass
     module procedure total_score_init
@@ -123,5 +133,19 @@ module tally_score_class
     match = (event == EVENT_SCATTER) .or. (event /= EVENT_SCATTER)
 
   end function total_score_match
+
+!===============================================================================
+! TOTAL_GET_SCORE returns the score for a TotalScoreClass instance
+!===============================================================================
+
+  function total_get_score(self, p) result(score)
+
+    class(TotalScoreClass) :: self
+    type(Particle) :: p
+    real(8) :: score
+
+    score = p % last_wgt
+
+  end function total_get_score
 
 end module tally_score_class

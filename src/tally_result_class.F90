@@ -11,6 +11,7 @@ module tally_result_class
     real(8) :: sum_sq   = ZERO
     contains
       procedure, public :: accumulate => accumulate_result
+      procedure, public :: add => add_result
       procedure, public :: statistics => statistics_result
       procedure, public :: reset => reset_result
   end type TallyResultClass
@@ -76,5 +77,20 @@ module tally_result_class
     self % sum_sq   = ZERO
 
   end subroutine reset_result
+
+!===============================================================================
+! ADD_RESULT adds a score to the results array
+!===============================================================================
+
+  subroutine add_result(self, score)
+
+    class(TallyResultClass), intent(inout) :: self
+    real(8), intent(in) :: score
+
+!$omp critical
+    self % value = self % value + score
+!$omp end critical
+
+  end subroutine add_result
 
 end module tally_result_class

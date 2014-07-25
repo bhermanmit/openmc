@@ -287,15 +287,24 @@ module tally_class
     type(Particle) :: p
 
     integer :: filter_index
+    integer :: j
+    real(8) :: score
 
     ! Get filter index
     filter_index = self % get_filter_index(p)
 
-    ! Get score index
+    ! Loop around score bins
+    do j = 1, self % n_scores
 
-    ! Calculate score 
+      ! Check if event matches score
+      if (self % scores(j) % p % score_match(p % event)) then
+        score = self % scores(j) % p % get_score(p)
+      end if
 
-    ! Perform the score to results array
+      ! Add score to results array
+      call self % results(j, filter_index) % add(score)
+
+    end do
 
   end subroutine analog_tally_score
 
