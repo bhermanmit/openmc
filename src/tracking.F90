@@ -183,6 +183,10 @@ contains
         ! Save coordinates for tallying purposes
         p % last_xyz = p % coord0 % xyz
 
+        ! Save weights and energy
+        p % last_wgt = p % wgt
+        p % last_E = p % E
+
         ! Set last material to none since cross sections will need to be
         ! re-evaluated
         p % last_material = NONE
