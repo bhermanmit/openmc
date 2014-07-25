@@ -1,5 +1,6 @@
 module particle_header
 
+  use ace_header,      only: MaterialMacroXS
   use constants,       only: NEUTRON, ONE, NONE, ZERO
   use geometry_header, only: BASE_UNIVERSE
 
@@ -65,7 +66,10 @@ module particle_header
     integer    :: event_MT      ! reaction MT
 
     ! How far did the neutron travel
-    real(8) :: dist
+    real(8), pointer :: dist
+
+    ! Pointer to material macroscopic xs
+    type(MaterialMacroXS), pointer :: material_xs
 
     ! Post-collision physical data
     integer    :: n_bank        ! number of fission sites banked

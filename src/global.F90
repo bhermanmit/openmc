@@ -68,7 +68,7 @@ module global
 
   ! Cross section caches
   type(NuclideMicroXS), allocatable :: micro_xs(:)  ! Cache for each nuclide
-  type(MaterialMacroXS)             :: material_xs  ! Cache for current material
+  type(MaterialMacroXS), target     :: material_xs  ! Cache for current material
 
   integer :: n_nuclides_total ! Number of nuclide cross section tables
   integer :: n_sab_tables     ! Number of S(a,b) thermal scattering tables

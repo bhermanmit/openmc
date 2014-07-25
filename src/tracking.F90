@@ -13,7 +13,7 @@ module tracking
   use string,          only: to_str
   use tally,           only: score_analog_tally, score_tracklength_tally, &
                              score_surface_current
-  use tally_new,       only: score_analog_tallies_new
+  use tally_new,       only: score_analog_tallies_new, score_tracklength_tallies_new
   use track_output,    only: initialize_particle_track, write_particle_track, &
                              finalize_particle_track
 
@@ -35,7 +35,7 @@ contains
     integer :: n_event         ! number of collisions/crossings
     real(8) :: d_boundary      ! distance to nearest boundary
     real(8) :: d_collision     ! sampled distance to collision
-    real(8) :: distance        ! distance particle travels
+    real(8), target :: distance        ! distance particle travels
     logical :: found_cell      ! found cell which particle is in?
     type(LocalCoord), pointer, save :: coord => null()
 !$omp threadprivate(coord)
@@ -90,6 +90,9 @@ contains
 
       if (p % material /= p % last_material) call calculate_xs(p)
 
+      ! Set pointer in material to the material_xs
+      p % material_xs => material_xs
+
       ! Find the distance to the nearest boundary
       call distance_to_boundary(p, d_boundary, surface_crossed, lattice_crossed)
 
@@ -113,6 +116,9 @@ contains
       ! Score track-length tallies
       if (active_tracklength_tallies % size() > 0) &
            call score_tracklength_tally(p, distance)
+      p % dist => distance
+      if (active_tracklength_tallies_new % size() > 0) &
+           call score_tracklength_tallies_new(p)
 
       ! Score track-length estimate of k-eff
 !$omp critical
@@ -165,7 +171,7 @@ contains
         ! outgoing energy for any tallies with an outgoing energy filter
 
         if (active_analog_tallies % size() > 0) call score_analog_tally(p)
-        call score_analog_tallies_new(p)
+        if (active_analog_tallies % size() > 0) call score_analog_tallies_new(p)
 
         ! Reset banked weight during collision
         p % n_bank   = 0

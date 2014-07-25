@@ -63,6 +63,8 @@ module tally_class
   ! Tracklength tally 
   type, extends(TallyClass), public :: TracklengthTallyClass
     private
+    contains
+      procedure :: get_flux => tracklength_get_flux
   end type TracklengthTallyClass
 
   ! Constructor call for analog tally
@@ -303,7 +305,7 @@ module tally_class
     real(8) :: score
     real(8), pointer :: flux
     real(8), pointer :: response
-    real(8) :: weight
+    real(8), pointer :: weight
 
     ! Get filter index
     filter_index = self % get_filter_index(p)
@@ -312,7 +314,7 @@ module tally_class
     do j = 1, self % n_scores
 
       ! Get appropriate particle weight
-      weight = self % scores(j) % p % get_weight(p)
+      weight => self % scores(j) % p % get_weight(p)
 
       ! Calculate appropriate score 
       select type(self)
@@ -321,8 +323,8 @@ module tally_class
         score = weight
 
       type is (TracklengthTallyClass)
-        flux => self % scores(j) % p % get_flux()
-        response => self % scores(j) % p % get_response()
+        flux => self % get_flux(p)
+        response => self % scores(j) % p % get_response(p)
         score = weight * response * flux
 
       end select
@@ -426,5 +428,19 @@ module tally_class
     self % estimator = 'tracklength'
 
   end function tracklength_tally_init
+
+!===============================================================================
+! TRACKLENGTH_GET_FLUX gets the flux estimator for a TracklengthTallyClass
+!===============================================================================
+
+  function tracklength_get_flux(self, p) result(flux)
+
+    class(TracklengthTallyClass) :: self
+    type(Particle) :: p
+    real(8), pointer :: flux
+
+    flux => p % dist
+
+  end function tracklength_get_flux
 
 end module tally_class

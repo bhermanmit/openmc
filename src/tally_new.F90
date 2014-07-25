@@ -91,9 +91,7 @@ module tally_new
       case ('analog')
         tallies_new(i) % p => AnalogTallyClass()
       case ('tracklength', 'track-length', 'pathlength', 'path-length')
-        message = "Invalid estimator '" // trim(temp_str) &
-             // "' on tally "
-        call fatal_error(message)
+        tallies_new(i) % p => TracklengthTallyClass()
       case default
         message = "Invalid estimator '" // trim(temp_str) &
              // "' on tally "
@@ -275,6 +273,25 @@ module tally_new
     end do
 
   end subroutine score_analog_tallies_new
+
+!===============================================================================
+! SCORE_TRACKLENGTH_TALLIES_NEW
+!===============================================================================
+
+  subroutine score_tracklength_tallies_new(p)
+
+    type(Particle) :: p
+
+    integer :: i
+    integer :: i_tally
+
+    ! Loop around tallies and score
+    do i = 1, active_tracklength_tallies_new % size()
+      i_tally = active_tracklength_tallies_new % get_item(i)
+      call tallies_new(i_tally) % p % score(p)
+    end do
+
+  end subroutine score_tracklength_tallies_new
 
 !===============================================================================
 ! DESTROY_TALLIES_NEW frees all new tallies memory
