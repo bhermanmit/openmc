@@ -21,8 +21,10 @@ module eigenvalue
   use string,       only: to_str
   use tally,        only: synchronize_tallies, setup_active_usertallies, &
                           reset_result
+  use tally_new,    only: reset_new_tallies
   use tracking,     only: transport
 
+  implicit none
   private
   public :: run_eigenvalue
 
@@ -134,6 +136,10 @@ contains
 !$omp parallel
       call setup_active_usertallies()
 !$omp end parallel
+
+      ! Reset new tallies because we haven't set up active array yet
+      call reset_new_tallies()
+
     end if
 
     ! check CMFD initialize batch

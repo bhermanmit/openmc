@@ -277,6 +277,20 @@ module tally_new
   end subroutine tally_new_statistics
 
 !===============================================================================
+! RESET_NEW_TALLIES
+!===============================================================================
+
+  subroutine reset_new_tallies()
+
+    integer :: i
+
+    do i = 1, n_user_tallies
+      call tallies_new(i) % p % reset()
+    end do
+
+  end subroutine reset_new_tallies
+
+!===============================================================================
 ! WRITE_NEW_TALLIES
 !===============================================================================
 

@@ -86,7 +86,7 @@ module tally_result_class
   elemental subroutine reset_result(self)
 
     class(TallyResultClass), intent(inout) :: self
-
+  
     self % value    = ZERO
     self % sum      = ZERO
     self % sum_sq   = ZERO
