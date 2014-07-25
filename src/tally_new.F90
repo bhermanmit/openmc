@@ -29,6 +29,7 @@ module tally_new
     class(TallyFilterClass), pointer :: f => null()
     class(TallyScoreClass), pointer :: s => null()
     integer :: i
+    integer :: int_scalar    ! temporary scalar integer
     integer :: j
     integer :: n_filters     ! number of filters
     integer :: n_words       ! number of words read
@@ -99,6 +100,15 @@ module tally_new
         call fatal_error(message)
       end select
       t => tallies_new(i) % p
+
+      ! Copy material id
+      if (check_for_node(node_tal, "id")) then
+        call get_node_value(node_tal, "id", int_scalar)
+      else
+        message = "Must specify id for tally in tally XML file."
+        call fatal_error(message)
+      end if
+      call t % set_id(int_scalar)
 
       ! Get pointer list to XML <filter> and get number of filters
       call get_node_list(node_tal, "filter", node_filt_list)
@@ -251,5 +261,45 @@ module tally_new
     end do
 
   end subroutine destroy_tallies_new
+
+!===============================================================================
+! TALLY_NEW_STATISTICS
+!===============================================================================
+
+  subroutine tally_new_statistics()
+
+    integer :: i
+
+    do i = 1, n_user_tallies
+      call tallies_new(i) % p % statistics
+    end do
+
+  end subroutine tally_new_statistics
+
+!===============================================================================
+! WRITE_TALLIES creates an output file and writes out the mean values of all
+! tallies and their standard deviations
+!===============================================================================
+
+  subroutine write_tallies()
+
+    integer :: i            ! index in tallies array
+    character(MAX_FILE_LEN) :: filename                    ! name of output file
+
+    ! Create filename for tally output
+    filename = trim(path_output) // "tallies_new.out"
+
+    ! Open tally file for writing
+    open(FILE=filename, UNIT=UNIT_TALLY, STATUS='replace', ACTION='write')
+
+    ! Loop around tallies and write
+    do i = 1, n_user_tallies
+      call tallies_new(i) % p % write(UNIT_TALLY)
+    end do
+
+    ! Close tally file
+    close(UNIT=UNIT_TALLY)
+
+  end subroutine write_tallies
 
 end module tally_new

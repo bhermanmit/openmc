@@ -4,6 +4,7 @@ module finalize
   use output,         only: print_runtime, print_results, &
                             print_overlap_check, write_tallies
   use tally,          only: tally_statistics
+  use tally_new,      only: tally_new_statistics
 
 #ifdef MPI
   use mpi
@@ -31,6 +32,7 @@ contains
       ! Calculate statistics for tallies and write to tallies.out
       if (master) then
         if (n_realizations > 1) call tally_statistics()
+        if (n_realizations > 1) call tally_new_statistics()
       end if
       if (output_tallies) then
         if (master) call write_tallies()

@@ -12,19 +12,23 @@ module tally_class
   ! General tally
   type, abstract, public :: TallyClass
     private
+    character(len=MAX_LINE_LEN) :: label = ""
+    character(len=MAX_WORD_LEN) :: estimator = ""
+    integer :: id ! ID of tally
     integer :: i_filter = 1  ! Current filter
     integer :: i_score = 1  ! Current score
     integer :: n_filters = ZERO ! Number of filters
+    integer :: n_realizations = ZERO ! Number of tally realizations
     integer :: n_scores = ZERO ! Number of scores
     integer :: total_score_bins = ZERO ! Total number of score bins
     integer :: total_filter_bins = ZERO ! Total number of filter bins
-    integer :: type ! Type of tally from constants
     integer, allocatable :: stride(:)
     integer, allocatable :: matching_bins(:)
     type(TallyFilter_p), allocatable :: filters(:) ! Polymorphic array of filter objects
     type(TallyResultClass), allocatable :: results(:,:) ! Array of result objects
     type(TallyScore_p), allocatable :: scores(:) ! Polymorphic array of filter objects
     contains
+      procedure, public :: accumulate => accumulate_results
       procedure, public :: add_filter
       procedure, public :: add_score
       procedure, public :: allocate_filters
@@ -34,7 +38,9 @@ module tally_class
       procedure, public :: finish_setup
       procedure :: get_filter_index
       procedure :: setup_stride
-      procedure, public :: set_type
+      procedure, public :: set_id
+      procedure, public :: statistics => tally_statistics
+      procedure, public :: write => write_tally
       procedure(tally_score), deferred :: score
   end type TallyClass
 
@@ -71,6 +77,19 @@ module tally_class
 ! General abstract tally methods
 !*******************************************************************************
 !*******************************************************************************
+
+!===============================================================================
+! ACCUMULATE_RESULTS
+!===============================================================================
+
+  subroutine accumulate_results(self, total_weight)
+
+    class(TallyClass), intent(inout) :: self
+    real(8), intent(in) :: total_weight
+
+    call self % results % accumulate(total_weight)
+
+  end subroutine accumulate_results
 
 !===============================================================================
 ! ADD_FILTER adds a filter to tally filter array
@@ -244,16 +263,66 @@ module tally_class
   end subroutine setup_stride
 
 !===============================================================================
-! SET_TYPE sets the member type in TallyClass instance
+! SET_ID sets the member id in TallyClass instance
 !===============================================================================
 
-  subroutine set_type(self, type)
+  subroutine set_id(self, id)
 
     class(TallyClass), intent(inout) :: self
-    integer :: type
-    self % type = type
+    integer, intent(in) :: id
 
-  end subroutine set_type
+    self % id = id
+
+  end subroutine set_id
+
+!===============================================================================
+! TALLY_STATISTICS
+!===============================================================================
+
+  subroutine tally_statistics(self)
+
+    class(TallyClass), intent(inout) :: self
+
+    call self % results % statistics(self % n_realizations) 
+
+  end subroutine tally_statistics
+
+!===============================================================================
+! WRITE_TALLY
+!===============================================================================
+
+  subroutine write_tally(self, unit)
+
+    class(TallyClass), intent(inout) :: self
+    integer, intent(in) :: unit
+
+    integer :: i
+    integer :: j
+
+    ! Write tally information
+    write(unit, *) "Tally ID:", self % id
+    write(unit, *) "  Estimator:", self % estimator
+    write(unit, *) "  Number of realizations:", self % n_realizations
+    write(unit, *) "  Filter Information:"
+
+    ! Write filter information
+    do i = 1, self % n_filters
+      call self % filters(i) % p % write(unit)
+    end do
+
+    ! Write score information
+    do i = 1, self % n_scores
+      call self % scores(i) % p % write(unit)
+    end do
+
+    ! Write out results
+    do i = 1, self % total_filter_bins
+      do j = 1, self % total_score_bins
+        call self % results(j,i) % write(unit)
+      end do
+    end do
+
+  end subroutine write_tally
 
 !*******************************************************************************
 !*******************************************************************************
@@ -273,7 +342,7 @@ module tally_class
     allocate(self)
 
     ! Set the tally type
-    call self % set_type(ESTIMATOR_ANALOG)
+    self % estimator = 'analog'
 
   end function analog_tally_init
 

@@ -10,18 +10,17 @@ module tally_filter_class
   ! General tally filter type
   type, abstract, public :: TallyFilterClass
     private
-    integer :: type    ! Type of filter from constants
+    character(len=MAX_WORD_LEN) :: type    ! Type of filter
     integer :: n_bins
     integer, allocatable :: int_bins(:)
     real(8), allocatable :: real_bins(:)
     contains
       procedure, public :: get_n_bins
-      procedure, public :: get_type
-      procedure, public :: set_type
       procedure :: set_int_bins
       procedure :: set_real_bins 
       generic, public :: set_bins => set_int_bins, set_real_bins
       procedure, public :: destroy => tally_filter_destroy
+      procedure, public :: write => write_filter 
       procedure(filter_index_interface), deferred :: get_filter_index
   end type TallyFilterClass
 
@@ -74,34 +73,6 @@ module tally_filter_class
   end function get_n_bins
 
 !===============================================================================
-! SET_TYPE sets the member type in TallyClass instance
-!===============================================================================
-
-  subroutine set_type(self, type)
-
-    class(TallyFilterClass), intent(inout) :: self
-    integer, intent(in) :: type
-
-    ! Set the type to instance
-    self % type = type
-
-  end subroutine set_type
-
-!===============================================================================
-! GET_TYPE returns the member type from TallyClass instance
-!===============================================================================
-
-  function get_type(self) result(type)
-
-    class(TallyFilterClass) :: self
-    integer :: type
-
-    ! Get the type from instance
-    type = self % type
-
-  end function get_type
-
-!===============================================================================
 ! SET_INT_BINS allocates and sets filter bins that are integers
 !===============================================================================
 
@@ -146,6 +117,23 @@ module tally_filter_class
 
   end subroutine tally_filter_destroy
 
+!===============================================================================
+! WRITE_FILTER
+!===============================================================================
+
+  subroutine write_filter(self, unit)
+
+    class(TallyFilterClass), intent(inout) :: self
+    integer :: unit
+
+    ! Write filter information
+    write(unit, *) "    Type:", self % type
+    write(unit, *) "    Number of bins:", self % n_bins
+    if (allocated(self % int_bins)) write(unit, *) "    BINS:", self % int_bins
+    if (allocated(self % real_bins)) write(unit, *) "    BINS:", self % real_bins
+
+  end subroutine write_filter
+
 !*******************************************************************************
 !*******************************************************************************
 ! Energy filter methods
@@ -164,7 +152,7 @@ module tally_filter_class
     allocate(self)
 
     ! Set type of filter
-    call self % set_type(FILTER_ENERGYIN)
+    self % type = 'energyin'
 
   end function energy_filter_init
 

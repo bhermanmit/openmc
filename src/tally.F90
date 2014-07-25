@@ -2344,6 +2344,11 @@ contains
 
       ! Accumulate results for global tallies
       call accumulate_result(global_tallies)
+
+      ! Accumulate results for new tallies (no MPI yet)
+      do i = 1, n_user_tallies
+        call tallies_new(i) % p % accumulate(total_weight)
+      end do
     end if
 
   end subroutine synchronize_tallies

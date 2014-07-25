@@ -10,10 +10,9 @@ module tally_score_class
   ! General tally score type
   type, abstract :: TallyScoreClass
     private
-    integer :: type    ! Type of score from constants
+    character(len=MAX_WORD_LEN) :: type    ! Type of score
     contains
-      procedure, public :: set_type
-      procedure, public :: get_type
+      procedure, public :: write => write_score
       procedure(score_match_interface), deferred :: score_match
       procedure(get_score_interface), deferred :: get_score
   end type TallyScoreClass
@@ -60,34 +59,6 @@ module tally_score_class
 !*******************************************************************************
 
 !===============================================================================
-! SET_TYPE sets the member type in TallyScoreClass instance
-!===============================================================================
-
-  subroutine set_type(self, type)
-
-    class(TallyScoreClass), intent(inout) :: self
-    integer, intent(in) :: type
-
-    ! Set the type to instance
-    self % type = type
-
-  end subroutine set_type
-
-!===============================================================================
-! GET_TYPE returns the member type from TallyScoreClass instance
-!===============================================================================
-
-  function get_type(self) result(type)
-
-    class(TallyScoreClass) :: self
-    integer :: type
-
-    ! Get the type from instance
-    type = self % type
-
-  end function get_type
-
-!===============================================================================
 ! TALLY_SCORE_DESTROY deallocates all members of TallyScoreClass
 !===============================================================================
 
@@ -96,6 +67,19 @@ module tally_score_class
     class(TallyScoreClass), intent(inout) :: self
 
   end subroutine tally_score_destroy
+
+!===============================================================================
+! WRITE_SCORE
+!===============================================================================
+
+  subroutine write_score(self, unit)
+
+    class(TallyScoreClass), intent(inout) :: self
+    integer, intent(in) :: unit
+
+    write(unit, *) "    Type:", self % type
+
+  end subroutine write_score
 
 !*******************************************************************************
 !*******************************************************************************
@@ -115,7 +99,7 @@ module tally_score_class
     allocate(self)
 
     ! Set type of filter
-    call self % set_type(SCORE_TOTAL)
+    self % type = 'total'
 
   end function total_score_init
 
