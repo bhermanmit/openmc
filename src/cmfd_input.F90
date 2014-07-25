@@ -84,14 +84,14 @@ contains
       ! CMFD is optional unless it is in on from settings
       if (cmfd_on) then
         message = "No CMFD XML file, '" // trim(filename) // "' does not exist!"
-        call fatal_error()
+        call fatal_error(message)
       end if
       return
     else
 
       ! Tell user
       message = "Reading CMFD XML file..."
-      call write_message(5)
+      call write_message(message, 5)
 
     end if
 
@@ -104,7 +104,7 @@ contains
     ! Check if mesh is there
     if (.not.found) then
       message = "No CMFD mesh specified in CMFD XML file."
-      call fatal_error()
+      call fatal_error(message)
     end if
 
     ! Set spatial dimensions in cmfd object
@@ -136,7 +136,7 @@ contains
       if (get_arraysize_integer(node_mesh, "map") /= &
           product(cmfd % indices(1:3))) then
         message = 'FATAL==>CMFD coremap not to correct dimensions'
-        call fatal_error()
+        call fatal_error(message)
       end if
       allocate(iarray(get_arraysize_integer(node_mesh, "map")))
       call get_node_array(node_mesh, "map", iarray)
@@ -234,7 +234,7 @@ contains
     if (trim(cmfd_display) == 'dominance' .and. &
         trim(cmfd_solver_type) /= 'power') then
       message = 'Dominance Ratio only aviable with power iteration solver'
-      call warning()
+      if (master) call warning(message)
       cmfd_display = ''
     end if
 
@@ -302,7 +302,7 @@ contains
     n = get_arraysize_integer(node_mesh, "dimension")
     if (n /= 2 .and. n /= 3) then
        message = "Mesh must be two or three dimensions."
-       call fatal_error()
+       call fatal_error(message)
     end if
     m % n_dimension = n
 
@@ -317,7 +317,7 @@ contains
     if (any(iarray3(1:n) <= 0)) then
       message = "All entries on the <dimension> element for a tally mesh &
            &must be positive."
-      call fatal_error()
+      call fatal_error(message)
     end if
 
     ! Read dimensions in each direction
@@ -327,7 +327,7 @@ contains
     if (m % n_dimension /= get_arraysize_double(node_mesh, "lower_left")) then
       message = "Number of entries on <lower_left> must be the same as &
            &the number of entries on <dimension>."
-      call fatal_error()
+      call fatal_error(message)
     end if
     call get_node_array(node_mesh, "lower_left", m % lower_left)
 
@@ -336,7 +336,7 @@ contains
         check_for_node(node_mesh, "width")) then
       message = "Cannot specify both <upper_right> and <width> on a &
            &tally mesh."
-      call fatal_error()
+      call fatal_error(message)
     end if
 
     ! Make sure either upper-right or width was specified
@@ -344,7 +344,7 @@ contains
         .not.check_for_node(node_mesh, "width")) then
       message = "Must specify either <upper_right> and <width> on a &
            &tally mesh."
-      call fatal_error()
+      call fatal_error(message)
     end if
 
     if (check_for_node(node_mesh, "width")) then
@@ -353,14 +353,14 @@ contains
           get_arraysize_double(node_mesh, "lower_left")) then
         message = "Number of entries on <width> must be the same as the &
              &number of entries on <lower_left>."
-        call fatal_error()
+        call fatal_error(message)
       end if
 
       ! Check for negative widths
       call get_node_array(node_mesh, "width", rarray3(1:n))
       if (any(rarray3(1:n) < ZERO)) then
         message = "Cannot have a negative <width> on a tally mesh."
-        call fatal_error()
+        call fatal_error(message)
       end if
 
       ! Set width and upper right coordinate
@@ -373,7 +373,7 @@ contains
           get_arraysize_double(node_mesh, "lower_left")) then
         message = "Number of entries on <upper_right> must be the same as &
              &the number of entries on <lower_left>."
-        call fatal_error()
+        call fatal_error(message)
       end if
 
       ! Check that upper-right is above lower-left
@@ -381,7 +381,7 @@ contains
       if (any(rarray3(1:n) < m % lower_left)) then
         message = "The <upper_right> coordinates must be greater than the &
              &<lower_left> coordinates on a tally mesh."
-        call fatal_error()
+        call fatal_error(message)
       end if
 
       ! Set upper right coordinate and width

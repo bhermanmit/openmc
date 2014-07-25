@@ -1,13 +1,13 @@
 module tally_new
 
-  use error,            only: fatal_error, warning
+  use error,              only: fatal_error, warning
   use global
-  use output,           only: write_message
-  use particle_header
-  use string
-  use tally_class
-  use tally_filter_class
-  use tally_score_class
+  use output,             only: write_message
+  use particle_header,    only: Particle
+  use string,             only: lower_case
+  use tally_class,        only: TallyClass, AnalogTallyClass
+  use tally_filter_class, only: TallyFilterClass, EnergyFilterClass
+  use tally_score_class,  only: TallyScoreClass, TotalScoreClass
   use xml_interface
 
   implicit none
@@ -53,7 +53,7 @@ module tally_new
 
     ! Display output message
     message = "Reading tallies XML file again..."
-    call write_message(5)
+    call write_message(message, 5)
 
     ! Parse tallies.xml file
     call open_xmldoc(doc, filename)
@@ -65,7 +65,7 @@ module tally_new
     n_user_tallies = get_list_size(node_tal_list)
     if (n_user_tallies == 0) then
       message = "No tallies present in tallies.xml file!"
-      call warning()
+      if (master) call warning(message)
     end if
 
     ! Allocate tally array
@@ -92,11 +92,11 @@ module tally_new
       case ('tracklength', 'track-length', 'pathlength', 'path-length')
         message = "Invalid estimator '" // trim(temp_str) &
              // "' on tally "
-        call fatal_error()
+        call fatal_error(message)
       case default
         message = "Invalid estimator '" // trim(temp_str) &
              // "' on tally "
-        call fatal_error()
+        call fatal_error(message)
       end select
       t => tallies_new(i) % p
 
@@ -131,7 +131,7 @@ module tally_new
             end if
           else
             message = "Bins not set in filter on tally "
-            call fatal_error()
+            call fatal_error(message)
           end if
 
           ! Determine type of filter
@@ -152,7 +152,7 @@ module tally_new
             ! Specified tally filter is invalid, raise error
             message = "Unknown filter type '" // &
                  trim(temp_str) // "' on tally "
-            call fatal_error()
+            call fatal_error(message)
 
           end select
 
@@ -191,7 +191,7 @@ module tally_new
             ! Specified tally score is invalid, raise error
             message = "Unknown score type '" // &
                  trim(sarray(j)) // "' on tally "
-            call fatal_error()
+            call fatal_error(message)
           
           end select
 
@@ -207,7 +207,7 @@ module tally_new
 
         ! Error if there are no scores specified for a tally
         message = "No <scores> specified on tally "
-        call fatal_error()
+        call fatal_error(message)
 
       end if
 

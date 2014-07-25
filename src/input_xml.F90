@@ -77,7 +77,7 @@ contains
 
     ! Display output message
     message = "Reading settings XML file..."
-    call write_message(5)
+    call write_message(message, 5)
 
     ! Check if settings.xml exists
     filename = trim(path_input) // "settings.xml"
@@ -88,7 +88,7 @@ contains
            &minimum, this includes settings.xml, geometry.xml, and &
            &materials.xml. Please consult the user's guide at &
            &http://mit-crpg.github.io/openmc for further information."
-      call fatal_error()
+      call fatal_error(message)
     end if
 
     ! Parse settings.xml file
@@ -110,7 +110,7 @@ contains
                &section libraries. Please consult the user's guide at &
                &http://mit-crpg.github.io/openmc for information on how to set &
                &up ACE cross section libraries."
-          call fatal_error()
+          call fatal_error(message)
         else
           path_cross_sections = trim(env_variable)
         end if
@@ -131,7 +131,7 @@ contains
     if (.not.check_for_node(doc, "eigenvalue") .and. &
          .not.check_for_node(doc, "fixed_source")) then
       message = "<eigenvalue> or <fixed_source> not specified."
-      call fatal_error()
+      call fatal_error(message)
     end if
 
     ! Eigenvalue information
@@ -145,7 +145,7 @@ contains
       ! Check number of particles
       if (.not.check_for_node(node_mode, "particles")) then
         message = "Need to specify number of particles per generation."
-        call fatal_error()
+        call fatal_error(message)
       end if
 
       ! Get number of particles
@@ -180,7 +180,7 @@ contains
       ! Check number of particles
       if (.not.check_for_node(node_mode, "particles")) then
         message = "Need to specify number of particles per batch."
-        call fatal_error()
+        call fatal_error(message)
       end if
 
       ! Get number of particles
@@ -200,13 +200,13 @@ contains
     ! Check number of active batches, inactive batches, and particles
     if (n_active <= 0) then
       message = "Number of active batches must be greater than zero."
-      call fatal_error()
+      call fatal_error(message)
     elseif (n_inactive < 0) then
       message = "Number of inactive batches must be non-negative."
-      call fatal_error()
+      call fatal_error(message)
     elseif (n_particles <= 0) then
       message = "Number of particles must be greater than zero."
-      call fatal_error()
+      call fatal_error(message)
     end if
 
     ! Copy random number seed if specified
@@ -225,10 +225,10 @@ contains
       grid_method = GRID_UNION
     case ('lethargy')
       message = "Lethargy mapped energy grid not yet supported."
-      call fatal_error()
+      call fatal_error(message)
     case default
       message = "Unknown energy grid method: " // trim(temp_str)
-      call fatal_error()
+      call fatal_error(message)
     end select
 
     ! Verbosity
@@ -244,13 +244,13 @@ contains
         call get_node_value(doc, "threads", n_threads)
         if (n_threads < 1) then
           message = "Invalid number of threads: " // to_str(n_threads)
-          call fatal_error()
+          call fatal_error(message)
         end if
         call omp_set_num_threads(n_threads)
       end if
 #else
       message = "Ignoring number of threads."
-      call warning()
+      if (master) call warning(message)
 #endif
     end if
 
@@ -262,7 +262,7 @@ contains
       call get_node_ptr(doc, "source", node_source)
     else
       message = "No source specified in settings XML file."
-      call fatal_error()
+      call fatal_error(message)
     end if
 
     ! Check for external source file
@@ -275,7 +275,7 @@ contains
       if (.not. file_exists) then
         message = "Binary source file '" // trim(path_source) // &
              "' does not exist!"
-        call fatal_error()
+        call fatal_error(message)
       end if
 
     else
@@ -301,7 +301,7 @@ contains
         case default
           message = "Invalid spatial distribution for external source: " &
               // trim(type)
-          call fatal_error()
+          call fatal_error(message)
         end select
 
         ! Determine number of parameters specified
@@ -315,11 +315,11 @@ contains
         if (n < coeffs_reqd) then
           message = "Not enough parameters specified for spatial &
                &distribution of external source."
-          call fatal_error()
+          call fatal_error(message)
         elseif (n > coeffs_reqd) then
           message = "Too many parameters specified for spatial &
                &distribution of external source."
-          call fatal_error()
+          call fatal_error(message)
         elseif (n > 0) then
           allocate(external_source % params_space(n))
           call get_node_array(node_dist, "parameters", &
@@ -327,7 +327,7 @@ contains
         end if
       else
         message = "No spatial distribution specified for external source."
-        call fatal_error()
+        call fatal_error(message)
       end if
 
       ! Determine external source angular distribution
@@ -353,7 +353,7 @@ contains
         case default
           message = "Invalid angular distribution for external source: " &
                // trim(type)
-          call fatal_error()
+          call fatal_error(message)
         end select
 
         ! Determine number of parameters specified
@@ -367,11 +367,11 @@ contains
         if (n < coeffs_reqd) then
           message = "Not enough parameters specified for angle &
                &distribution of external source."
-          call fatal_error()
+          call fatal_error(message)
         elseif (n > coeffs_reqd) then
           message = "Too many parameters specified for angle &
                &distribution of external source."
-          call fatal_error()
+          call fatal_error(message)
         elseif (n > 0) then
           allocate(external_source % params_angle(n))
           call get_node_array(node_dist, "parameters", &
@@ -408,7 +408,7 @@ contains
         case default
           message = "Invalid energy distribution for external source: " &
                // trim(type)
-          call fatal_error()
+          call fatal_error(message)
         end select
 
         ! Determine number of parameters specified
@@ -422,11 +422,11 @@ contains
         if (n < coeffs_reqd) then
           message = "Not enough parameters specified for energy &
                &distribution of external source."
-          call fatal_error()
+          call fatal_error(message)
         elseif (n > coeffs_reqd) then
           message = "Too many parameters specified for energy &
                &distribution of external source."
-          call fatal_error()
+          call fatal_error(message)
         elseif (n > 0) then
           allocate(external_source % params_energy(n))
           call get_node_array(node_dist, "parameters", &
@@ -478,7 +478,7 @@ contains
       if (mod(n_tracks, 3) /= 0) then
         message = "Number of integers specified in 'track' is not divisible &
              &by 3.  Please provide 3 integers per particle to be tracked."
-        call fatal_error()
+        call fatal_error(message)
       end if
 
       ! Allocate space and get list of tracks
@@ -520,7 +520,7 @@ contains
       if (.not. all(entropy_mesh % upper_right > entropy_mesh % lower_left)) then
         message = "Upper-right coordinate must be greater than lower-left &
              &coordinate for Shannon entropy mesh."
-        call fatal_error()
+        call fatal_error(message)
       end if
 
       ! Check if dimensions were specified -- if not, they will be calculated
@@ -531,7 +531,7 @@ contains
         if (get_arraysize_integer(node_entropy, "dimension") /= 3) then
           message = "Dimension of entropy mesh must be given as three &
                &integers."
-          call fatal_error()
+          call fatal_error(message)
         end if
 
         ! Allocate dimensions
@@ -561,7 +561,7 @@ contains
              &of UFS mesh."
       elseif (get_arraysize_integer(node_ufs, "dimension") /= 3) then
         message = "Dimension of UFS mesh must be given as three integers."
-        call fatal_error()
+        call fatal_error(message)
       end if
 
       ! Allocate mesh object and coordinates on mesh
@@ -585,7 +585,7 @@ contains
       if (.not. all(ufs_mesh % upper_right > ufs_mesh % lower_left)) then
         message = "Upper-right coordinate must be greater than lower-left &
              &coordinate for UFS mesh."
-        call fatal_error()
+        call fatal_error(message)
       end if
 
       ! Calculate width
@@ -720,7 +720,7 @@ contains
             get_item(i))) then
           message = 'Sourcepoint batches are not a subset&
                     & of statepoint batches.'
-          call fatal_error()
+          call fatal_error(message)
         end if
       end do
     end if
@@ -783,7 +783,7 @@ contains
 #ifndef PETSC
         if (master) then
           message = 'CMFD is not available, compile OpenMC with PETSc'
-          call fatal_error()
+          call fatal_error(message)
         end if
 #endif
       end if
@@ -812,7 +812,7 @@ contains
         default_expand = JENDL_40
       case default
         message = "Unknown natural element expansion option: " // trim(temp_str)
-        call fatal_error()
+        call fatal_error(message)
       end select
     end if
 
@@ -855,7 +855,7 @@ contains
 
     ! Display output message
     message = "Reading geometry XML file..."
-    call write_message(5)
+    call write_message(message, 5)
 
     ! ==========================================================================
     ! READ CELLS FROM GEOMETRY.XML
@@ -865,7 +865,7 @@ contains
     inquire(FILE=filename, EXIST=file_exists)
     if (.not. file_exists) then
       message = "Geometry XML file '" // trim(filename) // "' does not exist!"
-      call fatal_error()
+      call fatal_error(message)
     end if
 
     ! Parse geometry.xml file
@@ -880,7 +880,7 @@ contains
     ! Check for no cells
     if (n_cells == 0) then
       message = "No cells found in geometry.xml!"
-      call fatal_error()
+      call fatal_error(message)
     end if
 
     ! Allocate cells array
@@ -903,7 +903,7 @@ contains
         call get_node_value(node_cell, "id", c % id)
       else
         message = "Must specify id of cell in geometry XML file."
-        call fatal_error()
+        call fatal_error(message)
       end if
       if (check_for_node(node_cell, "universe")) then
         call get_node_value(node_cell, "universe", c % universe)
@@ -919,7 +919,7 @@ contains
       ! Check to make sure 'id' hasn't been used
       if (cell_dict % has_key(c % id)) then
         message = "Two or more cells use the same unique ID: " // to_str(c % id)
-        call fatal_error()
+        call fatal_error(message)
       end if
 
       ! Read material
@@ -941,7 +941,7 @@ contains
         ! Check for error
         if (c % material == ERROR_INT) then
           message = "Invalid material specified on cell " // to_str(c % id)
-          call fatal_error()
+          call fatal_error(message)
         end if
       end select
 
@@ -949,21 +949,21 @@ contains
       if (c % material == NONE .and. c % fill == NONE) then
         message = "Neither material nor fill was specified for cell " // &
              trim(to_str(c % id))
-        call fatal_error()
+        call fatal_error(message)
       end if
 
       ! Check to make sure that both material and fill haven't been
       ! specified simultaneously
       if (c % material /= NONE .and. c % fill /= NONE) then
         message = "Cannot specify material and fill simultaneously"
-        call fatal_error()
+        call fatal_error(message)
       end if
 
       ! Check to make sure that surfaces were specified
       if (.not. check_for_node(node_cell, "surfaces")) then
         message = "No surfaces specified for cell " // &
              trim(to_str(c % id))
-        call fatal_error()
+        call fatal_error(message)
       end if
 
       ! Allocate array for surfaces and copy
@@ -979,7 +979,7 @@ contains
         if (c % fill == NONE) then
           message = "Cannot apply a rotation to cell " // trim(to_str(&
                c % id)) // " because it is not filled with another universe"
-          call fatal_error()
+          call fatal_error(message)
         end if
 
         ! Read number of rotation parameters
@@ -987,7 +987,7 @@ contains
         if (n /= 3) then
           message = "Incorrect number of rotation parameters on cell " // &
                to_str(c % id)
-          call fatal_error()
+          call fatal_error(message)
         end if
 
         ! Copy rotation angles in x,y,z directions
@@ -1015,7 +1015,7 @@ contains
         if (c % fill == NONE) then
           message = "Cannot apply a translation to cell " // trim(to_str(&
                c % id)) // " because it is not filled with another universe"
-          call fatal_error()
+          call fatal_error(message)
         end if
 
         ! Read number of translation parameters
@@ -1023,7 +1023,7 @@ contains
         if (n /= 3) then
           message = "Incorrect number of translation parameters on cell " &
                // to_str(c % id)
-          call fatal_error()
+          call fatal_error(message)
         end if
 
         ! Copy translation vector
@@ -1065,7 +1065,7 @@ contains
     ! Check for no surfaces
     if (n_surfaces == 0) then
       message = "No surfaces found in geometry.xml!"
-      call fatal_error()
+      call fatal_error(message)
     end if
 
     ! Allocate cells array
@@ -1082,14 +1082,14 @@ contains
         call get_node_value(node_surf, "id", s % id)
       else
         message = "Must specify id of surface in geometry XML file."
-        call fatal_error()
+        call fatal_error(message)
       end if
 
       ! Check to make sure 'id' hasn't been used
       if (surface_dict % has_key(s % id)) then
         message = "Two or more surfaces use the same unique ID: " // &
              to_str(s % id)
-        call fatal_error()
+        call fatal_error(message)
       end if
 
       ! Copy and interpret surface type
@@ -1133,7 +1133,7 @@ contains
         coeffs_reqd  = 4
       case default
         message = "Invalid surface type: " // trim(word)
-        call fatal_error()
+        call fatal_error(message)
       end select
 
       ! Check to make sure that the proper number of coefficients
@@ -1144,11 +1144,11 @@ contains
       if (n < coeffs_reqd) then
         message = "Not enough coefficients specified for surface: " // &
              trim(to_str(s % id))
-        call fatal_error()
+        call fatal_error(message)
       elseif (n > coeffs_reqd) then
         message = "Too many coefficients specified for surface: " // &
              trim(to_str(s % id))
-        call fatal_error()
+        call fatal_error(message)
       else
         allocate(s % coeffs(n))
         call get_node_array(node_surf, "coeffs", s % coeffs)
@@ -1171,7 +1171,7 @@ contains
       case default
         message = "Unknown boundary condition '" // trim(word) // &
              "' specified on surface " // trim(to_str(s % id))
-        call fatal_error()
+        call fatal_error(message)
       end select
 
       ! Add surface to dictionary
@@ -1183,7 +1183,7 @@ contains
     ! surface
     if (.not. boundary_exists) then
       message = "No boundary conditions were applied to any surfaces!"
-      call fatal_error()
+      call fatal_error(message)
     end if
 
     ! ==========================================================================
@@ -1207,14 +1207,14 @@ contains
         call get_node_value(node_lat, "id", lat % id)
       else
         message = "Must specify id of lattice in geometry XML file."
-        call fatal_error()
+        call fatal_error(message)
       end if
 
       ! Check to make sure 'id' hasn't been used
       if (lattice_dict % has_key(lat % id)) then
         message = "Two or more lattices use the same unique ID: " // &
              to_str(lat % id)
-        call fatal_error()
+        call fatal_error(message)
       end if
 
       ! Read lattice type
@@ -1229,14 +1229,14 @@ contains
         lat % type = LATTICE_HEX
       case default
         message = "Invalid lattice type: " // trim(word)
-        call fatal_error()
+        call fatal_error(message)
       end select
 
       ! Read number of lattice cells in each dimension
       n = get_arraysize_integer(node_lat, "dimension")
       if (n /= 2 .and. n /= 3) then
         message = "Lattice must be two or three dimensions."
-        call fatal_error()
+        call fatal_error(message)
       end if
 
       lat % n_dimension = n
@@ -1248,7 +1248,7 @@ contains
           get_arraysize_double(node_lat, "lower_left")) then
         message = "Number of entries on <lower_left> must be the same as &
              &the number of entries on <dimension>."
-        call fatal_error()
+        call fatal_error(message)
       end if
 
       allocate(lat % lower_left(n))
@@ -1259,7 +1259,7 @@ contains
           get_arraysize_double(node_lat, "width")) then
         message = "Number of entries on <width> must be the same as &
              &the number of entries on <lower_left>."
-        call fatal_error()
+        call fatal_error(message)
       end if
 
       allocate(lat % width(n))
@@ -1280,7 +1280,7 @@ contains
       if (n /= n_x*n_y*n_z) then
         message = "Number of universes on <universes> does not match size of &
              &lattice " // trim(to_str(lat % id)) // "."
-        call fatal_error()
+        call fatal_error(message)
       end if
 
       allocate(temp_int_array(n))
@@ -1357,14 +1357,14 @@ contains
 
     ! Display output message
     message = "Reading materials XML file..."
-    call write_message(5)
+    call write_message(message, 5)
 
     ! Check is materials.xml exists
     filename = trim(path_input) // "materials.xml"
     inquire(FILE=filename, EXIST=file_exists)
     if (.not. file_exists) then
       message = "Material XML file '" // trim(filename) // "' does not exist!"
-      call fatal_error()
+      call fatal_error(message)
     end if
 
     ! Initialize default cross section variable
@@ -1399,14 +1399,14 @@ contains
         call get_node_value(node_mat, "id", mat % id)
       else
         message = "Must specify id of material in materials XML file"
-        call fatal_error()
+        call fatal_error(message)
       end if
 
       ! Check to make sure 'id' hasn't been used
       if (material_dict % has_key(mat % id)) then
         message = "Two or more materials use the same unique ID: " // &
              to_str(mat % id)
-        call fatal_error()
+        call fatal_error(message)
       end if
 
       if (run_mode == MODE_PLOTTING) then
@@ -1424,7 +1424,7 @@ contains
       else
         message = "Must specify density element in material " // &
                   trim(to_str(mat % id))
-        call fatal_error()
+        call fatal_error(message)
       end if
 
       ! Initialize value to zero
@@ -1449,7 +1449,7 @@ contains
         if (val <= ZERO) then
           message = "Need to specify a positive density on material " // &
                trim(to_str(mat % id)) // "."
-          call fatal_error()
+          call fatal_error(message)
         end if
 
         ! Adjust material density based on specified units
@@ -1466,7 +1466,7 @@ contains
         case default
           message = "Unkwown units '" // trim(units) &
                // "' specified on material " // trim(to_str(mat % id))
-          call fatal_error()
+          call fatal_error(message)
         end select
       end if
 
@@ -1478,7 +1478,7 @@ contains
            .not. check_for_node(node_mat, "element")) then
         message = "No nuclides or natural elements specified on material " // &
              trim(to_str(mat % id))
-        call fatal_error()
+        call fatal_error(message)
       end if
 
       ! Get pointer list of XML <nuclide>
@@ -1493,7 +1493,7 @@ contains
         if (.not.check_for_node(node_nuc, "name")) then
           message = "No name specified on nuclide in material " // &
                trim(to_str(mat % id))
-          call fatal_error()
+          call fatal_error(message)
         end if
 
         ! Check for cross section
@@ -1501,7 +1501,7 @@ contains
           if (default_xs == '') then
             message = "No cross section specified for nuclide in material " &
                  // trim(to_str(mat % id))
-            call fatal_error()
+            call fatal_error(message)
           else
             name = trim(default_xs)
           end if
@@ -1522,12 +1522,12 @@ contains
             .not.check_for_node(node_nuc, "wo")) then
           message = "No atom or weight percent specified for nuclide " // &
                trim(name)
-          call fatal_error()
+          call fatal_error(message)
         elseif (check_for_node(node_nuc, "ao") .and. &
                 check_for_node(node_nuc, "wo")) then
           message = "Cannot specify both atom and weight percents for a &
                &nuclide: " // trim(name)
-          call fatal_error()
+          call fatal_error(message)
         end if
 
         ! Copy atom/weight percents
@@ -1553,7 +1553,7 @@ contains
         if (.not.check_for_node(node_ele, "name")) then
           message = "No name specified on nuclide in material " // &
                trim(to_str(mat % id))
-          call fatal_error()
+          call fatal_error(message)
         end if
         call get_node_value(node_ele, "name", name)
 
@@ -1564,7 +1564,7 @@ contains
           if (default_xs == '') then
             message = "No cross section specified for nuclide in material " &
                  // trim(to_str(mat % id))
-            call fatal_error()
+            call fatal_error(message)
           else
             temp_str = trim(default_xs)
           end if
@@ -1576,12 +1576,12 @@ contains
             .not.check_for_node(node_ele, "wo")) then
           message = "No atom or weight percent specified for element " // &
                trim(name)
-          call fatal_error()
+          call fatal_error(message)
         elseif (check_for_node(node_ele, "ao") .and. &
                 check_for_node(node_ele, "wo")) then
           message = "Cannot specify both atom and weight percents for a &
                &element: " // trim(name)
-          call fatal_error()
+          call fatal_error(message)
         end if
 
         ! Expand element into naturally-occurring isotopes
@@ -1592,7 +1592,7 @@ contains
         else
           message = "The ability to expand a natural element based on weight &
                &percentage is not yet supported."
-          call fatal_error()
+          call fatal_error(message)
         end if
       end do NATURAL_ELEMENTS
 
@@ -1612,7 +1612,7 @@ contains
         if (.not. xs_listing_dict % has_key(name)) then
           message = "Could not find nuclide " // trim(name) // &
                " in cross_sections.xml file!"
-          call fatal_error()
+          call fatal_error(message)
         end if
 
         ! Check to make sure cross-section is continuous energy neutron table
@@ -1620,7 +1620,7 @@ contains
         if (name(n:n) /= 'c') then
           message = "Cross-section table " // trim(name) // &
                " is not a continuous-energy neutron table."
-          call fatal_error()
+          call fatal_error(message)
         end if
 
         ! Find xs_listing and set the name/alias according to the listing
@@ -1651,7 +1651,7 @@ contains
            all(mat % atom_density < ZERO))) then
         message = "Cannot mix atom and weight percents in material " // &
              to_str(mat % id)
-        call fatal_error()
+        call fatal_error(message)
       end if
 
       ! Determine density if it is a sum value
@@ -1688,7 +1688,7 @@ contains
           if (.not.check_for_node(node_sab, "name") .or. &
               .not.check_for_node(node_sab, "xs")) then
             message = "Need to specify <name> and <xs> for S(a,b) table."
-            call fatal_error()
+            call fatal_error(message)
           end if
           call get_node_value(node_sab, "name", name)
           call get_node_value(node_sab, "xs", temp_str)
@@ -1699,7 +1699,7 @@ contains
           if (.not. xs_listing_dict % has_key(name)) then
             message = "Could not find S(a,b) table " // trim(name) // &
                  " in cross_sections.xml file!"
-            call fatal_error()
+            call fatal_error(message)
           end if
 
           ! Find index in xs_listing and set the name and alias according to the
@@ -1785,7 +1785,7 @@ contains
 
     ! Display output message
     message = "Reading tallies XML file..."
-    call write_message(5)
+    call write_message(message, 5)
 
     ! Parse tallies.xml file
     call open_xmldoc(doc, filename)
@@ -1814,7 +1814,7 @@ contains
     n_user_tallies = get_list_size(node_tal_list)
     if (n_user_tallies == 0) then
       message = "No tallies present in tallies.xml file!"
-      call warning()
+      if (master) call warning(message)
     end if
 
     ! Allocate tally array
@@ -1844,14 +1844,14 @@ contains
         call get_node_value(node_mesh, "id", m % id)
       else
         message = "Must specify id for mesh in tally XML file."
-        call fatal_error()
+        call fatal_error(message)
       end if
 
       ! Check to make sure 'id' hasn't been used
       if (mesh_dict % has_key(m % id)) then
         message = "Two or more meshes use the same unique ID: " // &
              to_str(m % id)
-        call fatal_error()
+        call fatal_error(message)
       end if
 
       ! Read mesh type
@@ -1866,14 +1866,14 @@ contains
         m % type = LATTICE_HEX
       case default
         message = "Invalid mesh type: " // trim(temp_str)
-        call fatal_error()
+        call fatal_error(message)
       end select
 
       ! Determine number of dimensions for mesh
       n = get_arraysize_integer(node_mesh, "dimension")
       if (n /= 2 .and. n /= 3) then
         message = "Mesh must be two or three dimensions."
-        call fatal_error()
+        call fatal_error(message)
       end if
       m % n_dimension = n
 
@@ -1888,7 +1888,7 @@ contains
       if (any(iarray3(1:n) <= 0)) then
         message = "All entries on the <dimension> element for a tally mesh &
              &must be positive."
-        call fatal_error()
+        call fatal_error(message)
       end if
 
       ! Read dimensions in each direction
@@ -1898,7 +1898,7 @@ contains
       if (m % n_dimension /= get_arraysize_double(node_mesh, "lower_left")) then
         message = "Number of entries on <lower_left> must be the same as &
              &the number of entries on <dimension>."
-        call fatal_error()
+        call fatal_error(message)
       end if
       call get_node_array(node_mesh, "lower_left", m % lower_left)
 
@@ -1907,7 +1907,7 @@ contains
           check_for_node(node_mesh, "width")) then
         message = "Cannot specify both <upper_right> and <width> on a &
              &tally mesh."
-        call fatal_error()
+        call fatal_error(message)
       end if
 
       ! Make sure either upper-right or width was specified
@@ -1915,7 +1915,7 @@ contains
           .not.check_for_node(node_mesh, "width")) then
         message = "Must specify either <upper_right> and <width> on a &
              &tally mesh."
-        call fatal_error()
+        call fatal_error(message)
       end if
 
       if (check_for_node(node_mesh, "width")) then
@@ -1924,14 +1924,14 @@ contains
             get_arraysize_double(node_mesh, "lower_left")) then
           message = "Number of entries on <width> must be the same as the &
                &number of entries on <lower_left>."
-          call fatal_error()
+          call fatal_error(message)
         end if
 
         ! Check for negative widths
         call get_node_array(node_mesh, "width", rarray3(1:n))
         if (any(rarray3(1:n) < ZERO)) then
           message = "Cannot have a negative <width> on a tally mesh."
-          call fatal_error()
+          call fatal_error(message)
         end if
 
         ! Set width and upper right coordinate
@@ -1944,7 +1944,7 @@ contains
             get_arraysize_double(node_mesh, "lower_left")) then
           message = "Number of entries on <upper_right> must be the same as &
                &the number of entries on <lower_left>."
-          call fatal_error()
+          call fatal_error(message)
         end if
 
         ! Check that upper-right is above lower-left
@@ -1952,7 +1952,7 @@ contains
         if (any(rarray3(1:n) < m % lower_left)) then
           message = "The <upper_right> coordinates must be greater than the &
                &<lower_left> coordinates on a tally mesh."
-          call fatal_error()
+          call fatal_error(message)
         end if
 
         ! Set width and upper right coordinate
@@ -1993,14 +1993,14 @@ contains
         call get_node_value(node_tal, "id", t % id)
       else
         message = "Must specify id for tally in tally XML file."
-        call fatal_error()
+        call fatal_error(message)
       end if
 
       ! Check to make sure 'id' hasn't been used
       if (tally_dict % has_key(t % id)) then
         message = "Two or more tallies use the same unique ID: " // &
              to_str(t % id)
-        call fatal_error()
+        call fatal_error(message)
       end if
 
       ! Copy tally label
@@ -2018,7 +2018,7 @@ contains
 !     if (get_number_nodes(node_tal, "filters") > 0) then
 !       message = "Tally filters should be specified with multiple <filter> &
 !            &elements. Did you forget to change your <filters> element?"
-!       call fatal_error()
+!       call fatal_error(message)
 !     end if
 
       ! Get pointer list to XML <filter> and get number of filters
@@ -2051,7 +2051,7 @@ contains
             end if
           else
             message = "Bins not set in filter on tally " // trim(to_str(t % id))
-            call fatal_error()
+            call fatal_error(message)
           end if
 
           ! Determine type of filter
@@ -2102,7 +2102,7 @@ contains
 
           case ('surface')
             message = "Surface filter is not yet supported!"
-            call fatal_error()
+            call fatal_error(message)
 
             ! Set type of filter
             t % filters(j) % type = FILTER_SURFACE
@@ -2121,7 +2121,7 @@ contains
             ! Check to make sure multiple meshes weren't given
             if (n_words /= 1) then
               message = "Can only have one mesh filter specified."
-              call fatal_error()
+              call fatal_error(message)
             end if
 
             ! Determine id of mesh
@@ -2134,7 +2134,7 @@ contains
             else
               message = "Could not find mesh " // trim(to_str(id)) // &
                    " specified on tally " // trim(to_str(t % id))
-              call fatal_error()
+              call fatal_error(message)
             end if
 
             ! Determine number of bins -- this is assuming that the tally is
@@ -2176,7 +2176,7 @@ contains
             message = "Unknown filter type '" // &
                  trim(temp_str) // "' on tally " // &
                  trim(to_str(t % id)) // "."
-            call fatal_error()
+            call fatal_error(message)
 
           end select
 
@@ -2192,7 +2192,7 @@ contains
              t % find_filter(FILTER_SURFACE) > 0) then
           message = "Cannot specify both cell and surface filters for tally " &
                // trim(to_str(t % id))
-          call fatal_error()
+          call fatal_error(message)
         end if
 
       else
@@ -2257,7 +2257,7 @@ contains
                   message = "Could not find the nuclide " // trim(&
                        sarray(j)) // " specified in tally " &
                        // trim(to_str(t % id)) // " in any material."
-                  call fatal_error()
+                  call fatal_error(message)
                 end if
                 deallocate(pair_list)
               else
@@ -2270,7 +2270,7 @@ contains
             if (.not. nuclide_dict % has_key(word)) then
               message = "The nuclide " // trim(word) // " from tally " // &
                    trim(to_str(t % id)) // " is not present in any material."
-              call fatal_error()
+              call fatal_error(message)
             end if
 
             ! Set bin to index in nuclides array
@@ -2322,7 +2322,7 @@ contains
                 message = "Invalid scattering order of " // trim(to_str(n_order)) // &
                   " requested. Setting to the maximum permissible value, " // &
                   trim(to_str(MAX_ANG_ORDER))
-                call warning()
+                if (master) call warning(message)
                 n_order = MAX_ANG_ORDER
                 sarray(j) = trim(MOMENT_STRS(imomstr)) // &
                   trim(to_str(MAX_ANG_ORDER))
@@ -2364,7 +2364,7 @@ contains
                 message = "Invalid scattering order of " // trim(to_str(n_order)) // &
                   " requested. Setting to the maximum permissible value, " // &
                   trim(to_str(MAX_ANG_ORDER))
-                call warning()
+                if (master) call warning(message)
                 n_order = MAX_ANG_ORDER
               end if
               score_name = trim(MOMENT_STRS(imomstr)) // "n"
@@ -2391,7 +2391,7 @@ contains
                   message = "Invalid scattering order of " // trim(to_str(n_order)) // &
                     " requested. Setting to the maximum permissible value, " // &
                     trim(to_str(MAX_ANG_ORDER))
-                  call warning()
+                  if (master) call warning(message)
                   n_order = MAX_ANG_ORDER
                 end if
                 score_name = trim(MOMENT_N_STRS(imomstr)) // "n"
@@ -2406,25 +2406,25 @@ contains
             if (.not. (t % n_nuclide_bins == 1 .and. &
                  t % nuclide_bins(1) == -1)) then
               message = "Cannot tally flux for an individual nuclide."
-              call fatal_error()
+              call fatal_error(message)
             end if
 
             t % score_bins(j) = SCORE_FLUX
             if (t % find_filter(FILTER_ENERGYOUT) > 0) then
               message = "Cannot tally flux with an outgoing energy filter."
-              call fatal_error()
+              call fatal_error(message)
             end if
           case ('flux-yn')
             ! Prohibit user from tallying flux for an individual nuclide
             if (.not. (t % n_nuclide_bins == 1 .and. &
                  t % nuclide_bins(1) == -1)) then
               message = "Cannot tally flux for an individual nuclide."
-              call fatal_error()
+              call fatal_error(message)
             end if
 
             if (t % find_filter(FILTER_ENERGYOUT) > 0) then
               message = "Cannot tally flux with an outgoing energy filter."
-              call fatal_error()
+              call fatal_error(message)
             end if
 
             t % score_bins(j : j + n_bins - 1) = SCORE_FLUX_YN
@@ -2436,14 +2436,14 @@ contains
             if (t % find_filter(FILTER_ENERGYOUT) > 0) then
               message = "Cannot tally total reaction rate with an &
                    &outgoing energy filter."
-              call fatal_error()
+              call fatal_error(message)
             end if
 
           case ('total-yn')
             if (t % find_filter(FILTER_ENERGYOUT) > 0) then
               message = "Cannot tally total reaction rate with an &
                    &outgoing energy filter."
-              call fatal_error()
+              call fatal_error(message)
             end if
 
             t % score_bins(j : j + n_bins - 1) = SCORE_TOTAL_YN
@@ -2514,7 +2514,7 @@ contains
           case ('diffusion')
             message = "Diffusion score no longer supported for tallies, &
                       &please remove"
-            call fatal_error()
+            call fatal_error(message)
           case ('n1n')
             t % score_bins(j) = SCORE_N_1N
 
@@ -2534,14 +2534,14 @@ contains
             if (t % find_filter(FILTER_ENERGYOUT) > 0) then
               message = "Cannot tally absorption rate with an outgoing &
                    &energy filter."
-              call fatal_error()
+              call fatal_error(message)
             end if
           case ('fission')
             t % score_bins(j) = SCORE_FISSION
             if (t % find_filter(FILTER_ENERGYOUT) > 0) then
               message = "Cannot tally fission rate with an outgoing &
                    &energy filter."
-              call fatal_error()
+              call fatal_error(message)
             end if
           case ('nu-fission')
             t % score_bins(j) = SCORE_NU_FISSION
@@ -2561,7 +2561,7 @@ contains
               message = "Cannot tally other scoring functions in the same &
                    &tally as surface currents. Separate other scoring &
                    &functions into a distinct tally."
-              call fatal_error()
+              call fatal_error(message)
             end if
 
             ! Since the number of bins for the mesh filter was already set
@@ -2616,14 +2616,14 @@ contains
               else
                 message = "Invalid MT on <scores>: " // &
                      trim(sarray(l))
-                call fatal_error()
+                call fatal_error(message)
               end if
 
             else
               ! Specified score was not an integer
               message = "Unknown scoring function: " // &
                    trim(sarray(l))
-              call fatal_error()
+              call fatal_error(message)
             end if
 
           end select
@@ -2636,7 +2636,7 @@ contains
       else
         message = "No <scores> specified on tally " // trim(to_str(t % id)) &
              // "."
-        call fatal_error()
+        call fatal_error(message)
       end if
 
       ! =======================================================================
@@ -2656,7 +2656,7 @@ contains
           if (t % estimator == ESTIMATOR_ANALOG) then
             message = "Cannot use track-length estimator for tally " &
                  // to_str(t % id)
-            call fatal_error()
+            call fatal_error(message)
           end if
 
           ! Set estimator to track-length estimator
@@ -2665,7 +2665,7 @@ contains
         case default
           message = "Invalid estimator '" // trim(temp_str) &
                // "' on tally " // to_str(t % id)
-          call fatal_error()
+          call fatal_error(message)
         end select
       end if
 
@@ -2705,12 +2705,12 @@ contains
     inquire(FILE=filename, EXIST=file_exists)
     if (.not. file_exists) then
       message = "Plots XML file '" // trim(filename) // "' does not exist!"
-      call fatal_error()
+      call fatal_error(message)
     end if
 
     ! Display output message
     message = "Reading plot XML file..."
-    call write_message(5)
+    call write_message(message, 5)
 
     ! Parse plots.xml file
     call open_xmldoc(doc, filename)
@@ -2733,14 +2733,14 @@ contains
         call get_node_value(node_plot, "id", pl % id)
       else
         message = "Must specify plot id in plots XML file."
-        call fatal_error()
+        call fatal_error(message)
       end if
 
       ! Check to make sure 'id' hasn't been used
       if (plot_dict % has_key(pl % id)) then
         message = "Two or more plots use the same unique ID: " // &
              to_str(pl % id)
-        call fatal_error()
+        call fatal_error(message)
       end if
 
       ! Copy plot type
@@ -2756,7 +2756,7 @@ contains
       case default
         message = "Unsupported plot type '" // trim(temp_str) &
              // "' in plot " // trim(to_str(pl % id))
-        call fatal_error()
+        call fatal_error(message)
       end select
 
       ! Set output file path
@@ -2779,7 +2779,7 @@ contains
         else
           message = "<pixels> must be length 2 in slice plot " // &
                     trim(to_str(pl % id))
-          call fatal_error()
+          call fatal_error(message)
         end if
       else if (pl % type == PLOT_TYPE_VOXEL) then
         if (get_arraysize_integer(node_plot, "pixels") == 3) then
@@ -2787,7 +2787,7 @@ contains
         else
           message = "<pixels> must be length 3 in voxel plot " // &
                     trim(to_str(pl % id))
-          call fatal_error()
+          call fatal_error(message)
         end if
       end if
 
@@ -2796,14 +2796,14 @@ contains
         if (pl % type == PLOT_TYPE_VOXEL) then
           message = "Background color ignored in voxel plot " // &
                      trim(to_str(pl % id))
-          call warning()
+          if (master) call warning(message)
         end if
         if (get_arraysize_integer(node_plot, "background") == 3) then
           call get_node_array(node_plot, "background", pl % not_found % rgb)
         else
           message = "Bad background RGB " &
                // "in plot " // trim(to_str(pl % id))
-          call fatal_error()
+          call fatal_error(message)
         end if
       else
         pl % not_found % rgb = (/ 255, 255, 255 /)
@@ -2825,7 +2825,7 @@ contains
         case default
           message = "Unsupported plot basis '" // trim(temp_str) &
                // "' in plot " // trim(to_str(pl % id))
-          call fatal_error()
+          call fatal_error(message)
         end select
       end if
 
@@ -2835,7 +2835,7 @@ contains
       else
         message = "Origin must be length 3 " &
              // "in plot " // trim(to_str(pl % id))
-        call fatal_error()
+        call fatal_error(message)
       end if
 
       ! Copy plotting width
@@ -2845,7 +2845,7 @@ contains
         else
           message = "<width> must be length 2 in slice plot " // &
                     trim(to_str(pl % id))
-          call fatal_error()
+          call fatal_error(message)
         end if
       else if (pl % type == PLOT_TYPE_VOXEL) then
         if (get_arraysize_double(node_plot, "width") == 3) then
@@ -2853,7 +2853,7 @@ contains
         else
           message = "<width> must be length 3 in voxel plot " // &
                     trim(to_str(pl % id))
-          call fatal_error()
+          call fatal_error(message)
         end if
       end if
 
@@ -2886,7 +2886,7 @@ contains
       case default
         message = "Unsupported plot color type '" // trim(temp_str) &
              // "' in plot " // trim(to_str(pl % id))
-        call fatal_error()
+        call fatal_error(message)
       end select
 
       ! Get the number of <col_spec> nodes and get a list of them
@@ -2899,7 +2899,7 @@ contains
         if (pl % type == PLOT_TYPE_VOXEL) then
           message = "Color specifications ignored in voxel plot " // &
                      trim(to_str(pl % id))
-          call warning()
+          if (master) call warning(message)
         end if
 
         do j = 1, n_cols
@@ -2911,7 +2911,7 @@ contains
           if (get_arraysize_double(node_col, "rgb") /= 3) then
             message = "Bad RGB " &
                  // "in plot " // trim(to_str(pl % id))
-            call fatal_error()
+            call fatal_error(message)
           end if
 
           ! Ensure that there is an id for this color specification
@@ -2920,7 +2920,7 @@ contains
           else
             message = "Must specify id for color specification in plot " // &
                       trim(to_str(pl % id))
-            call fatal_error()
+            call fatal_error(message)
           end if
 
           ! Add RGB
@@ -2932,7 +2932,7 @@ contains
             else
               message = "Could not find cell " // trim(to_str(col_id)) // &
                    " specified in plot " // trim(to_str(pl % id))
-              call fatal_error()
+              call fatal_error(message)
             end if
 
           else if (pl % color_by == PLOT_COLOR_MATS) then
@@ -2943,7 +2943,7 @@ contains
             else
               message = "Could not find material " // trim(to_str(col_id)) // &
                    " specified in plot " // trim(to_str(pl % id))
-              call fatal_error()
+              call fatal_error(message)
             end if
 
           end if
@@ -2958,14 +2958,14 @@ contains
         if (pl % type == PLOT_TYPE_VOXEL) then
           message = "Mask ignored in voxel plot " // &
                      trim(to_str(pl % id))
-          call warning()
+          if (master) call warning(message)
         end if
 
         select case(n_masks)
           case default
             message = "Mutliple masks" // &
                  " specified in plot " // trim(to_str(pl % id))
-            call fatal_error()
+            call fatal_error(message)
           case (1)
 
             ! Get pointer to mask
@@ -2977,7 +2977,7 @@ contains
             if (n_comp == 0) then
               message = "Missing <components> in mask of plot " // &
                         trim(to_str(pl % id))
-              call fatal_error()
+              call fatal_error(message)
             end if
             allocate(iarray(n_comp))
             call get_node_array(node_mask, "components", iarray)
@@ -2994,7 +2994,7 @@ contains
                 else
                   message = "Could not find cell " // trim(to_str(col_id)) // &
                        " specified in the mask in plot " // trim(to_str(pl % id))
-                  call fatal_error()
+                  call fatal_error(message)
                 end if
 
               else if (pl % color_by == PLOT_COLOR_MATS) then
@@ -3004,7 +3004,7 @@ contains
                 else
                   message = "Could not find material " // trim(to_str(col_id)) // &
                        " specified in the mask in plot " // trim(to_str(pl % id))
-                  call fatal_error()
+                  call fatal_error(message)
                 end if
 
               end if
@@ -3018,7 +3018,7 @@ contains
                 else
                   message = "Missing <background> in mask of plot " // &
                             trim(to_str(pl % id))
-                  call fatal_error()
+                  call fatal_error(message)
                 end if
               end if
             end do
@@ -3064,11 +3064,11 @@ contains
        ! Could not find cross_sections.xml file
        message = "Cross sections XML file '" // trim(path_cross_sections) // &
             "' does not exist!"
-       call fatal_error()
+       call fatal_error(message)
     end if
 
     message = "Reading cross sections XML file..."
-    call write_message(5)
+    call write_message(message, 5)
 
     ! Parse cross_sections.xml file
     call open_xmldoc(doc, path_cross_sections)
@@ -3095,7 +3095,7 @@ contains
        filetype = ASCII
     else
        message = "Unknown filetype in cross_sections.xml: " // trim(temp_str)
-       call fatal_error()
+       call fatal_error(message)
     end if
 
     ! copy default record length and entries for binary files
@@ -3111,7 +3111,7 @@ contains
     ! Allocate xs_listings array
     if (n_listings == 0) then
        message = "No ACE table listings present in cross_sections.xml file!"
-       call fatal_error()
+       call fatal_error(message)
     else
        allocate(xs_listings(n_listings))
     end if
@@ -3170,7 +3170,7 @@ contains
          call get_node_value(node_ace, "path", temp_str)
        else
          message = "Path missing for isotope " // listing % name
-         call fatal_error()
+         call fatal_error(message)
        end if
 
        if (starts_with(temp_str, '/')) then
@@ -4027,7 +4027,7 @@ contains
 
     case default
       message = "Cannot expand element: " // name
-      call fatal_error()
+      call fatal_error(message)
 
     end select
 

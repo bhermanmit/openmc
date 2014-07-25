@@ -45,7 +45,7 @@ contains
         call cmfd_jfnk_execute()
       else
         message = 'solver type became invalid after input processing'
-        call fatal_error() 
+        call fatal_error(message) 
       end if
 
       ! Save k-effective
@@ -78,10 +78,6 @@ contains
 !==============================================================================
 
   subroutine cmfd_init_batch()
-
-    use global,            only: cmfd_begin, cmfd_on, cmfd_tally_on,         &
-                                 cmfd_inact_flush, cmfd_act_flush, cmfd_run, &
-                                 current_batch, cmfd_hold_weights
 
     ! Check to activate CMFD diffusion and possible feedback
     ! this guarantees that when cmfd begins at least one batch of tallies are
@@ -120,8 +116,6 @@ contains
   subroutine process_cmfd_options()
 
 #ifdef PETSC
-    use global,       only: cmfd_snes_monitor, cmfd_ksp_monitor, mpi_err
-
     ! Check for snes monitor
     if (cmfd_snes_monitor) call PetscOptionsSetValue("-snes_monitor", &
          "stdout", mpi_err)
@@ -140,10 +134,8 @@ contains
   subroutine calc_fission_source()
 
     use constants,  only: CMFD_NOACCEL, ZERO, TWO
-    use global,     only: cmfd, cmfd_coremap, master, entropy_on, current_batch
 
 #ifdef MPI
-    use global,     only: mpi_err
     use mpi
 #endif
 
@@ -264,14 +256,11 @@ contains
 
     use constants,   only: ZERO, ONE
     use error,       only: warning, fatal_error
-    use global,      only: meshes, source_bank, work, n_user_meshes, message, &
-                           cmfd, master
     use mesh_header, only: StructuredMesh
     use mesh,        only: count_bank_sites, get_mesh_indices
     use search,      only: binary_search
 
 #ifdef MPI
-    use global,      only: mpi_err
     use mpi
 #endif
 
@@ -327,7 +316,7 @@ contains
       ! Check for sites outside of the mesh
       if (master .and. outside) then
         message = "Source sites outside of the CMFD mesh!"
-        call fatal_error()
+        call fatal_error(message)
       end if
 
       ! Have master compute weight factors (watch for 0s)
@@ -356,11 +345,11 @@ contains
       if (source_bank(i) % E < cmfd % egrid(1)) then
         e_bin = 1
         message = 'Source pt below energy grid'
-        call warning()
+        if (master) call warning(message)
       elseif (source_bank(i) % E > cmfd % egrid(n_groups + 1)) then
         e_bin = n_groups
         message = 'Source pt above energy grid'
-        call warning()
+        if (master) call warning(message)
       else
         e_bin = binary_search(cmfd % egrid, n_groups + 1, source_bank(i) % E)
       end if
@@ -371,7 +360,7 @@ contains
       ! Check for outside of mesh
       if (.not. in_mesh) then
         message = 'Source site found outside of CMFD mesh'
-        call fatal_error()
+        call fatal_error(message)
       end if
 
       ! Reweight particle
@@ -390,8 +379,6 @@ contains
 !===============================================================================
 
   function get_matrix_idx(g, i, j, k, ng, nx, ny) result (matidx)
-
-    use global, only: cmfd, cmfd_coremap
 
     integer :: matidx ! the index location in matrix
     integer, intent(in) :: i  ! current x index
@@ -423,7 +410,6 @@ contains
 
   subroutine cmfd_tally_reset()
 
-    use global,  only: n_cmfd_tallies, cmfd_tallies, message
     use output,  only: write_message
     use tally,   only: reset_result
 
@@ -431,7 +417,7 @@ contains
 
     ! Print message
     message = "CMFD tallies reset"
-    call write_message(7)
+    call write_message(message, 7)
 
     ! Begin loop around CMFD tallies
     do i = 1, n_cmfd_tallies

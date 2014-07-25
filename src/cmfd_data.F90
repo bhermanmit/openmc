@@ -5,6 +5,7 @@ module cmfd_data
 ! parameters for CMFD calculation.
 !==============================================================================
 
+  use constants
 
   implicit none
   private
@@ -56,7 +57,7 @@ contains
                             OUT_FRONT, IN_TOP, OUT_TOP, CMFD_NOACCEL, ZERO,     &
                             ONE, TINY_BIT
     use error,        only: fatal_error
-    use global,       only: cmfd, message, n_cmfd_tallies, cmfd_tallies, meshes,&
+    use global,       only: cmfd, n_cmfd_tallies, cmfd_tallies, meshes,&
                             matching_bins
     use mesh,         only: mesh_indices_to_bin
     use mesh_header,  only: StructuredMesh
@@ -163,7 +164,7 @@ contains
                   message = 'Detected zero flux without coremap overlay at: (' &
                           // to_str(i) // ',' // to_str(j) // ',' // to_str(k) &
                           // ') in group ' // to_str(h)
-                  call fatal_error()
+                  call fatal_error(message)
                 end if
 
                 ! Get total rr and convert to total xs

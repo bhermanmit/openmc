@@ -13,7 +13,7 @@ module tracking
   use string,          only: to_str
   use tally,           only: score_analog_tally, score_tracklength_tally, &
                              score_surface_current
-  use tally_new
+  use tally_new,       only: score_analog_tallies_new
   use track_output,    only: initialize_particle_track, write_particle_track, &
                              finalize_particle_track
 
@@ -43,7 +43,7 @@ contains
     ! Display message if high verbosity or trace is on
     if (verbosity >= 9 .or. trace) then
       message = "Simulating Particle " // trim(to_str(p % id))
-      call write_message()
+      call write_message(message)
     end if
 
     ! If the cell hasn't been determined based on the particle's location,
@@ -54,7 +54,7 @@ contains
       ! Particle couldn't be located
       if (.not. found_cell) then
         message = "Could not locate particle " // trim(to_str(p % id))
-        call fatal_error()
+        call fatal_error(message)
       end if
 
       ! set birth cell attribute
@@ -204,7 +204,7 @@ contains
       if (n_event == MAX_EVENTS) then
         message = "Particle " // trim(to_str(p%id)) // " underwent maximum &
              &number of events."
-        call warning()
+        if (master) call warning(message)
         p % alive = .false.
       end if
 

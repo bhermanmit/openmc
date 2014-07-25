@@ -1,6 +1,7 @@
 module error
 
   use, intrinsic :: ISO_FORTRAN_ENV
+  use constants
 
 #ifdef MPI
   use mpi
@@ -73,8 +74,9 @@ contains
 ! the program is aborted.
 !===============================================================================
 
-  subroutine fatal_error(error_code)
+  subroutine fatal_error(message, error_code)
 
+    character(2*MAX_LINE_LEN) :: message
     integer, optional :: error_code ! error code
 
     integer :: code      ! error code
@@ -133,14 +135,12 @@ contains
     end do
 
     ! Write information on current batch, generation, and particle
-    if (current_batch > 0) then
-      write(ERROR_UNIT,'(1X,A,I12) ') 'Batch:     ', current_batch
-      write(ERROR_UNIT,'(1X,A,I12) ') 'Generation:', current_gen
-      write(ERROR_UNIT,*)
-    end if
+!   write(ERROR_UNIT,'(1X,A,I12) ') 'Batch:     ', current_batch
+!   write(ERROR_UNIT,'(1X,A,I12) ') 'Generation:', current_gen
+!   write(ERROR_UNIT,*)
 
     ! Release memory from all allocatable arrays
-    call free_memory()
+!   call free_memory()
 
 #ifdef MPI
     ! Abort MPI
