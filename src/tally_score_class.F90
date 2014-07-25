@@ -32,15 +32,15 @@ module tally_score_class
       import TallyScoreClass
       import Particle
       class(TallyScoreClass) :: self
-      type(Particle), target :: p
-      real(8), pointer :: response
+      type(Particle) :: p
+      real(8) :: response
     end function get_response_interface
     function get_weight_interface(self, p) result(weight)
       import TallyScoreClass
       import Particle
       class(TallyScoreClass) :: self
-      type(Particle), target :: p
-      real(8), pointer :: weight
+      type(Particle) :: p
+      real(8) :: weight
     end function get_weight_interface
   end interface
 
@@ -136,10 +136,10 @@ module tally_score_class
   function total_get_response(self, p) result(response)
 
     class(TotalScoreClass) :: self
-    type(Particle), target :: p
-    real(8), pointer :: response
+    type(Particle) :: p
+    real(8) :: response
 
-    response => p % material_xs % total
+    response = p % material_xs % total
 
   end function total_get_response
 
@@ -150,10 +150,10 @@ module tally_score_class
   function total_get_weight(self, p) result(weight)
 
     class(TotalScoreClass) :: self
-    type(Particle), target :: p
-    real(8), pointer :: weight
+    type(Particle) :: p
+    real(8) :: weight
 
-    weight => p % last_wgt
+    weight = p % last_wgt
 
   end function total_get_weight
 

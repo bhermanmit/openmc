@@ -2647,7 +2647,7 @@ contains
         temp_str = ''
         call get_node_value(node_tal, "estimator", temp_str)
         select case(trim(temp_str))
-        case ('analog')
+        case ('analog', 'collision')
           t % estimator = ESTIMATOR_ANALOG
 
         case ('tracklength', 'track-length', 'pathlength', 'path-length')

@@ -13,7 +13,9 @@ module tracking
   use string,          only: to_str
   use tally,           only: score_analog_tally, score_tracklength_tally, &
                              score_surface_current
-  use tally_new,       only: score_analog_tallies_new, score_tracklength_tallies_new
+  use tally_new,       only: score_analog_tallies_new, &
+                             score_tracklength_tallies_new, &
+                             score_collision_tallies_new
   use track_output,    only: initialize_particle_track, write_particle_track, &
                              finalize_particle_track
 
@@ -164,6 +166,11 @@ contains
         ! Clear surface component
         p % surface = NONE
 
+        ! Score collision tallies 
+        if (active_collision_tallies_new % size() > 0) &
+           call score_collision_tallies_new(p)
+
+        ! Perform a collision
         call collision(p)
 
         ! Score collision estimator tallies -- this is done after a collision

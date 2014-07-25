@@ -123,10 +123,12 @@ module global
   ! Active tally lists
   type(SetInt) :: active_analog_tallies_new
   type(SetInt) :: active_tracklength_tallies_new
+  type(SetInt) :: active_collision_tallies_new
   type(SetInt) :: active_current_tallies_new
   type(SetInt) :: active_tallies_new
 !$omp threadprivate(active_analog_tallies_new, active_tracklength_tallies_new, &
-!$omp&              active_current_tallies_new, active_tallies_new)
+!$omp&              active_collision_tallies_new, active_current_tallies_new, &
+!$omp&              active_tallies_new)
 
   ! Global tallies
   !   1) collision estimate of k-eff

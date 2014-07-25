@@ -67,9 +67,21 @@ module tally_class
       procedure :: get_flux => tracklength_get_flux
   end type TracklengthTallyClass
 
-  ! Constructor call for analog tally
+  ! Constructor call for tracklength tally
   interface TracklengthTallyClass
     module procedure tracklength_tally_init
+  end interface
+
+  ! Collision tally 
+  type, extends(TallyClass), public :: CollisionTallyClass
+    private
+    contains
+      procedure :: get_flux => collision_get_flux
+  end type CollisionTallyClass
+
+  ! Constructor call for collision tally
+  interface CollisionTallyClass
+    module procedure collision_tally_init
   end interface
 
   contains
@@ -303,9 +315,9 @@ module tally_class
     integer :: filter_index
     integer :: j
     real(8) :: score
-    real(8), pointer :: flux
-    real(8), pointer :: response
-    real(8), pointer :: weight
+    real(8) :: flux
+    real(8) :: response
+    real(8) :: weight
 
     ! Get filter index
     filter_index = self % get_filter_index(p)
@@ -314,7 +326,7 @@ module tally_class
     do j = 1, self % n_scores
 
       ! Get appropriate particle weight
-      weight => self % scores(j) % p % get_weight(p)
+      weight = self % scores(j) % p % get_weight(p)
 
       ! Calculate appropriate score 
       select type(self)
@@ -323,8 +335,13 @@ module tally_class
         score = weight
 
       type is (TracklengthTallyClass)
-        flux => self % get_flux(p)
-        response => self % scores(j) % p % get_response(p)
+        flux = self % get_flux(p)
+        response = self % scores(j) % p % get_response(p)
+        score = weight * response * flux
+
+      type is (CollisionTallyClass)
+        flux = self % get_flux(p)
+        response = self % scores(j) % p % get_response(p)
         score = weight * response * flux
 
       end select
@@ -437,10 +454,46 @@ module tally_class
 
     class(TracklengthTallyClass) :: self
     type(Particle) :: p
-    real(8), pointer :: flux
+    real(8) :: flux
 
-    flux => p % dist
+    flux = p % dist
 
   end function tracklength_get_flux
+
+!*******************************************************************************
+!*******************************************************************************
+! Collision tally methods
+!*******************************************************************************
+!*******************************************************************************
+
+!===============================================================================
+! COLLISION_TALLY_INIT initializes an CollisionTallyClass
+!===============================================================================
+
+  function collision_tally_init() result(self)
+
+    class(CollisionTallyClass), pointer :: self
+
+    ! Allocate
+    allocate(self)
+
+    ! Set the tally type
+    self % estimator = 'collision'
+
+  end function collision_tally_init
+
+!===============================================================================
+! COLLISION_GET_FLUX gets the flux estimator for a CollisionTallyClass
+!===============================================================================
+
+  function collision_get_flux(self, p) result(flux)
+
+    class(CollisionTallyClass) :: self
+    type(Particle) :: p
+    real(8) :: flux
+
+    flux = ONE/p % material_xs % total
+
+  end function collision_get_flux
 
 end module tally_class
