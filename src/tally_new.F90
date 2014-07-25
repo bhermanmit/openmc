@@ -277,11 +277,10 @@ module tally_new
   end subroutine tally_new_statistics
 
 !===============================================================================
-! WRITE_TALLIES creates an output file and writes out the mean values of all
-! tallies and their standard deviations
+! WRITE_NEW_TALLIES
 !===============================================================================
 
-  subroutine write_tallies()
+  subroutine write_new_tallies()
 
     integer :: i            ! index in tallies array
     character(MAX_FILE_LEN) :: filename                    ! name of output file
@@ -300,6 +299,6 @@ module tally_new
     ! Close tally file
     close(UNIT=UNIT_TALLY)
 
-  end subroutine write_tallies
+  end subroutine write_new_tallies
 
 end module tally_new

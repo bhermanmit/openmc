@@ -127,7 +127,7 @@ module tally_filter_class
     integer :: unit
 
     ! Write filter information
-    write(unit, *) "    Type:", self % type
+    write(unit, *) "    Type:", trim(self % type)
     write(unit, *) "    Number of bins:", self % n_bins
     if (allocated(self % int_bins)) write(unit, *) "    BINS:", self % int_bins
     if (allocated(self % real_bins)) write(unit, *) "    BINS:", self % real_bins

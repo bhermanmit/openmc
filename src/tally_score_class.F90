@@ -77,7 +77,7 @@ module tally_score_class
     class(TallyScoreClass), intent(inout) :: self
     integer, intent(in) :: unit
 
-    write(unit, *) "    Type:", self % type
+    write(unit, *) "    Type:", trim(self % type)
 
   end subroutine write_score
 

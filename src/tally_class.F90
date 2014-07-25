@@ -37,6 +37,7 @@ module tally_class
       procedure, public :: destroy => tally_destroy
       procedure, public :: finish_setup
       procedure :: get_filter_index
+      procedure, public :: reset => tally_reset
       procedure :: setup_stride
       procedure, public :: set_id
       procedure, public :: statistics => tally_statistics
@@ -87,6 +88,7 @@ module tally_class
     class(TallyClass), intent(inout) :: self
     real(8), intent(in) :: total_weight
 
+    self % n_realizations = self % n_realizations + 1
     call self % results % accumulate(total_weight)
 
   end subroutine accumulate_results
@@ -276,6 +278,19 @@ module tally_class
   end subroutine set_id
 
 !===============================================================================
+! TALLY_RESET
+!===============================================================================
+
+  subroutine tally_reset(self)
+
+    class(TallyClass), intent(inout) :: self
+
+    self % n_realizations = 0
+    call self % results % reset()
+
+  end subroutine tally_reset
+
+!===============================================================================
 ! TALLY_STATISTICS
 !===============================================================================
 
@@ -301,7 +316,7 @@ module tally_class
 
     ! Write tally information
     write(unit, *) "Tally ID:", self % id
-    write(unit, *) "  Estimator:", self % estimator
+    write(unit, *) "  Estimator:", trim(self % estimator)
     write(unit, *) "  Number of realizations:", self % n_realizations
     write(unit, *) "  Filter Information:"
 
