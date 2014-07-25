@@ -2346,8 +2346,9 @@ contains
       call accumulate_result(global_tallies)
 
       ! Accumulate results for new tallies (no MPI yet)
-      do i = 1, n_user_tallies
-        call tallies_new(i) % p % accumulate(total_weight)
+      do i = 1, active_tallies_new % size()
+        call tallies_new(active_tallies_new % get_item(i)) % &
+                 p % accumulate(total_weight)
       end do
     end if
 

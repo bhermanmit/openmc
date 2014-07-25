@@ -21,7 +21,7 @@ module eigenvalue
   use string,       only: to_str
   use tally,        only: synchronize_tallies, setup_active_usertallies, &
                           reset_result
-  use tally_new,    only: reset_new_tallies
+  use tally_new,    only: setup_active_usertallies_new
   use tracking,     only: transport
 
   implicit none
@@ -135,11 +135,8 @@ contains
       ! Add user tallies to active tallies list
 !$omp parallel
       call setup_active_usertallies()
+      call setup_active_usertallies_new()
 !$omp end parallel
-
-      ! Reset new tallies because we haven't set up active array yet
-      call reset_new_tallies()
-
     end if
 
     ! check CMFD initialize batch

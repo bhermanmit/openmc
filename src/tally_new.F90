@@ -232,6 +232,32 @@ module tally_new
   end subroutine read_tallies_new
 
 !===============================================================================
+! SETUP_ACTIVE_USERTALLIES_NEW
+!===============================================================================
+
+  subroutine setup_active_usertallies_new()
+
+    integer :: i ! loop counter
+
+    do i = 1, n_user_tallies
+      ! Add tally to active tallies
+      call active_tallies_new % add(i)
+
+      ! Check what type of tally this is and add it to the appropriate list
+      select type(t => tallies_new(i) % p)
+
+      type is (AnalogTallyClass)
+        call active_analog_tallies_new % add(i)
+
+      type is (TracklengthTallyClass)
+        call active_tracklength_tallies_new % add(i)
+
+      end select
+    end do
+
+  end subroutine setup_active_usertallies_new
+
+!===============================================================================
 ! SCORE_ANALOG_TALLIES_NEW
 !===============================================================================
 
@@ -240,10 +266,12 @@ module tally_new
     type(Particle) :: p
 
     integer :: i
+    integer :: i_tally
 
     ! Loop around tallies and score
-    do i = 1, n_tallies
-      call tallies_new(i) % p % score(p)
+    do i = 1, active_analog_tallies_new % size()
+      i_tally = active_analog_tallies_new % get_item(i)
+      call tallies_new(i_tally) % p % score(p)
     end do
 
   end subroutine score_analog_tallies_new
