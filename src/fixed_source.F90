@@ -11,6 +11,7 @@ module fixed_source
   use tally,           only: synchronize_tallies, setup_active_usertallies
   use tracking,        only: transport
 
+  character(2*MAX_LINE_LEN) :: message
   type(Bank), pointer :: source_site => null()
 !$omp threadprivate(source_site)
 

@@ -101,6 +101,9 @@ module global
   type(Tally_p), allocatable, target :: tallies_new(:)
   integer, allocatable :: matching_bins(:)
 
+  ! Pointers for new active tallies
+! type(Tally_p), allocatable, pointer :: active_analog_tallies(:)
+
   ! Pointers for different tallies
   type(TallyObject), pointer :: user_tallies(:) => null()
   type(TallyObject), pointer :: cmfd_tallies(:) => null()
@@ -271,9 +274,6 @@ module global
   character(MAX_FILE_LEN) :: path_particle_restart ! Path to particle restart
   character(MAX_FILE_LEN) :: path_output = ''      ! Path to output directory
 
-  ! Message used in message/warning/fatal_error
-  character(2*MAX_LINE_LEN) :: message
-
   ! Random number seed
   integer(8) :: seed = 1_8
 
@@ -383,7 +383,7 @@ module global
   logical :: output_xs      = .false.
   logical :: output_tallies = .true.
 
-!$omp threadprivate(micro_xs, material_xs, fission_bank, n_bank, message, &
+!$omp threadprivate(micro_xs, material_xs, fission_bank, n_bank, &
 !$omp&              trace, thread_id, current_work, matching_bins)
 
 contains

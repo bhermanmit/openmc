@@ -10,6 +10,7 @@ module cmfd_data
   private
   public :: set_up_cmfd, neutron_balance
 
+  character(2*MAX_LINE_LEN) :: message                                      
   logical :: dhat_reset = .false.
 
 contains
