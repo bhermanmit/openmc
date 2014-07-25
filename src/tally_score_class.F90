@@ -11,10 +11,16 @@ module tally_score_class
   type, abstract :: TallyScoreClass
     private
     character(len=MAX_WORD_LEN) :: type    ! Type of score
+    real(8), pointer :: flux
+    real(8), pointer :: response
     contains
+      procedure, public :: get_flux
+      procedure, public :: set_flux
+      procedure, public :: get_response
+      procedure, public :: set_response
       procedure, public :: write => write_score
       procedure(score_match_interface), deferred :: score_match
-      procedure(get_score_interface), deferred :: get_score
+      procedure(get_weight_interface), deferred :: get_weight
   end type TallyScoreClass
 
   ! Abstract interface for deferred procedures
@@ -25,13 +31,13 @@ module tally_score_class
       integer :: event
       logical :: match
     end function score_match_interface
-    function get_score_interface(self, p) result(score)
+    function get_weight_interface(self, p) result(weight)
       import TallyScoreClass
       import Particle
       class(TallyScoreClass) :: self
       type(Particle) :: p
-      real(8) :: score
-    end function get_score_interface
+      real(8) :: weight
+    end function get_weight_interface
   end interface
 
   ! Tally score pointer
@@ -44,7 +50,7 @@ module tally_score_class
     private
     contains
       procedure, public :: score_match => total_score_match
-      procedure, public :: get_score => total_get_score
+      procedure, public :: get_weight => total_get_weight
   end type TotalScoreClass
   interface TotalScoreClass
     module procedure total_score_init
@@ -57,6 +63,58 @@ module tally_score_class
 ! General abstract tally score methods
 !*******************************************************************************
 !*******************************************************************************
+
+!===============================================================================
+! GET_FLUX returns the flux for a ScoreClass instance
+!===============================================================================
+
+  function get_flux(self) result(flux)
+
+    class(TallyScoreClass) :: self
+    real(8), pointer :: flux
+
+    flux => self % flux
+
+  end function get_flux
+
+!===============================================================================
+! SET_FLUX sets a pointer to the flux parameter 
+!===============================================================================
+
+  subroutine set_flux(self, flux)
+
+    class(TallyScoreClass), intent(inout) :: self
+    real(8), pointer, intent(in) :: flux
+
+    self % flux => flux
+
+  end subroutine set_flux
+
+!===============================================================================
+! GET_RESPONSE returns the response for a ScoreClass instance
+!===============================================================================
+
+  function get_response(self) result(response)
+
+    class(TallyScoreClass) :: self
+    real(8), pointer :: response
+
+    response => self % response
+
+  end function get_response
+
+!===============================================================================
+! SET_RESPONSE sets a pointer to the response parameter 
+!===============================================================================
+
+  subroutine set_response(self, response)
+
+    class(TallyScoreClass), intent(inout) :: self
+    real(8), pointer, intent(in) :: response
+
+    self % response => response
+
+  end subroutine set_response
 
 !===============================================================================
 ! TALLY_SCORE_DESTROY deallocates all members of TallyScoreClass
@@ -119,17 +177,17 @@ module tally_score_class
   end function total_score_match
 
 !===============================================================================
-! TOTAL_GET_SCORE returns the score for a TotalScoreClass instance
+! TOTAL_GET_WEIGHT returns the weight for a TotalScoreClass instance
 !===============================================================================
 
-  function total_get_score(self, p) result(score)
+  function total_get_weight(self, p) result(weight)
 
     class(TotalScoreClass) :: self
     type(Particle) :: p
-    real(8) :: score
+    real(8) :: weight
 
-    score = p % last_wgt
+    weight = p % last_wgt
 
-  end function total_get_score
+  end function total_get_weight
 
 end module tally_score_class

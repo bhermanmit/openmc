@@ -64,6 +64,9 @@ module particle_header
     integer    :: event_nuclide ! index in nuclides array
     integer    :: event_MT      ! reaction MT
 
+    ! How far did the neutron travel
+    real(8) :: dist
+
     ! Post-collision physical data
     integer    :: n_bank        ! number of fission sites banked
     real(8)    :: wgt_bank      ! weight of fission sites banked

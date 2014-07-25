@@ -42,17 +42,8 @@ module tally_class
       procedure, public :: set_id
       procedure, public :: statistics => tally_statistics
       procedure, public :: write => write_tally
-      procedure(tally_score), deferred :: score
+      procedure, public :: score => tally_score
   end type TallyClass
-
-  abstract interface
-    subroutine tally_score(self, p)
-      import TallyClass
-      import Particle
-      class(TallyClass) ::  self
-      type(Particle) :: p
-    end subroutine tally_score
-  end interface
 
   ! Tally pointer type
   type, public :: Tally_p
@@ -62,13 +53,21 @@ module tally_class
   ! Analog tally 
   type, extends(TallyClass), public :: AnalogTallyClass
     private
-    contains
-      procedure, public :: score => analog_tally_score
   end type AnalogTallyClass
 
-  ! Constructor call
+  ! Constructor call for analog tally
   interface AnalogTallyClass
     module procedure analog_tally_init
+  end interface
+
+  ! Tracklength tally 
+  type, extends(TallyClass), public :: TracklengthTallyClass
+    private
+  end type TracklengthTallyClass
+
+  ! Constructor call for analog tally
+  interface TracklengthTallyClass
+    module procedure tracklength_tally_init
   end interface
 
   contains
@@ -291,6 +290,51 @@ module tally_class
   end subroutine tally_reset
 
 !===============================================================================
+! TALLY_SCORE performs a score to a tally
+!===============================================================================
+
+  subroutine tally_score(self, p)
+
+    class(TallyClass) :: self
+    type(Particle) :: p
+
+    integer :: filter_index
+    integer :: j
+    real(8) :: score
+    real(8), pointer :: flux
+    real(8), pointer :: response
+    real(8) :: weight
+
+    ! Get filter index
+    filter_index = self % get_filter_index(p)
+
+    ! Loop around score bins
+    do j = 1, self % n_scores
+
+      ! Get appropriate particle weight
+      weight = self % scores(j) % p % get_weight(p)
+
+      ! Calculate appropriate score 
+      select type(self)
+
+      type is (AnalogTallyClass)
+        score = weight
+
+      type is (TracklengthTallyClass)
+        flux => self % scores(j) % p % get_flux()
+        response => self % scores(j) % p % get_response()
+        score = weight * response * flux
+
+      end select
+
+      ! Add score to results array
+      call self % results(j, filter_index) % add(score)
+
+    end do
+
+  end subroutine tally_score
+
+!===============================================================================
 ! TALLY_STATISTICS
 !===============================================================================
 
@@ -361,35 +405,26 @@ module tally_class
 
   end function analog_tally_init
 
+!*******************************************************************************
+!*******************************************************************************
+! Tracklength tally methods
+!*******************************************************************************
+!*******************************************************************************
+
 !===============================================================================
-! ANALOG_TALLY_SCORE performs a score for an analog tally
+! TRACKLENGTH_TALLY_INIT initializes an TracklengthTallyClass
 !===============================================================================
 
-  subroutine analog_tally_score(self, p)
+  function tracklength_tally_init() result(self)
 
-    class(AnalogTallyClass) :: self
-    type(Particle) :: p
+    class(TracklengthTallyClass), pointer :: self
 
-    integer :: filter_index
-    integer :: j
-    real(8) :: score
+    ! Allocate
+    allocate(self)
 
-    ! Get filter index
-    filter_index = self % get_filter_index(p)
+    ! Set the tally type
+    self % estimator = 'tracklength'
 
-    ! Loop around score bins
-    do j = 1, self % n_scores
-
-      ! Check if event matches score
-      if (self % scores(j) % p % score_match(p % event)) then
-        score = self % scores(j) % p % get_score(p)
-      end if
-
-      ! Add score to results array
-      call self % results(j, filter_index) % add(score)
-
-    end do
-
-  end subroutine analog_tally_score
+  end function tracklength_tally_init
 
 end module tally_class
