@@ -156,6 +156,17 @@ module tally_new
             call get_node_array(node_filt, "bins", real_bins)
             call f % set_bins(n_words - 1, real_bins)
             deallocate(real_bins)
+
+          case ('energyout')
+
+            ! Allocate an energy-out filter
+            f => EnergyOutFilterClass()
+
+            ! Read in bins and set to filter
+            allocate(real_bins(n_words))
+            call get_node_array(node_filt, "bins", real_bins)
+            call f % set_bins(n_words - 1, real_bins)
+            deallocate(real_bins)
  
           case default
 

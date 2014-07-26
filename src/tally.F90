@@ -501,7 +501,7 @@ contains
                 ! bank. Since this was weighted by 1/keff, we multiply by keff
                 ! to get the proper score.
 
-                score = p % wgt_bank
+                score = keff * p % wgt_bank
 
               end if
             end if

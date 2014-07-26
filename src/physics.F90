@@ -908,12 +908,15 @@ contains
       fission_bank(i) % E = sample_fission_energy(nuc, rxn, p % E)
     end do
 
-    ! increment number of bank sites
-    n_bank = min(n_bank + nu, int(size(fission_bank),8))
-
     ! Store total weight banked for analog fission tallies
     p % n_bank   = nu
-    p % wgt_bank = keff*nu/weight
+    p % wgt_bank = nu/weight
+    p % keff = keff
+    p % fission_bank => fission_bank(int(n_bank,4) + 1: &
+        int(min(n_bank + nu, int(size(fission_bank),8)),4))
+
+    ! increment number of bank sites
+    n_bank = min(n_bank + nu, int(size(fission_bank),8))
 
   end subroutine create_fission_sites
 

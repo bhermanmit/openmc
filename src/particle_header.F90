@@ -1,6 +1,7 @@
 module particle_header
 
   use ace_header,      only: MaterialMacroXS
+  use bank_header,     only: Bank
   use constants,       only: NEUTRON, ONE, NONE, ZERO
   use geometry_header, only: BASE_UNIVERSE
 
@@ -74,6 +75,8 @@ module particle_header
     ! Post-collision physical data
     integer    :: n_bank        ! number of fission sites banked
     real(8)    :: wgt_bank      ! weight of fission sites banked
+    real(8)    :: keff          ! keff used in physics module
+    type(Bank), pointer :: fission_bank(:) => null()
 
     ! Indices for various arrays
     integer    :: surface       ! index for surface particle is on

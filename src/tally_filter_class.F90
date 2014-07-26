@@ -51,6 +51,17 @@ module tally_filter_class
     module procedure energy_filter_init
   end interface
 
+  ! Energy-out filter
+  type, extends(TallyFilterClass), public :: EnergyOutFilterClass
+    private
+    contains
+      procedure, public :: get_filter_index => energyout_filter_get_index
+      procedure, public :: set_real_bins => energyout_filter_set_bins
+  end type EnergyOutFilterClass
+  interface EnergyOutFilterClass
+    module procedure energyout_filter_init
+  end interface
+
   contains
 
 !*******************************************************************************
@@ -188,5 +199,60 @@ module tally_filter_class
     self % real_bins = bins
 
   end subroutine energy_filter_set_bins
+
+!*******************************************************************************
+!*******************************************************************************
+! Energy-out filter methods
+!*******************************************************************************
+!*******************************************************************************
+
+!===============================================================================
+! ENERGYOUT_FILTER_INIT allocates and sets up an EnergyOutFilterClass instance
+!===============================================================================
+
+  function energyout_filter_init() result(self)
+
+    class(EnergyOutFilterClass), pointer :: self
+
+    ! Create object
+    allocate(self)
+
+    ! Set type of filter
+    self % type = 'energy-out'
+
+  end function energyout_filter_init
+
+!===============================================================================
+! ENERGYOUT_FILTER_GET_INDEX returns the index for an energy-out filter
+!===============================================================================
+
+  function energyout_filter_get_index(self, p) result(filter_index)
+
+    class(EnergyOutFilterClass) :: self
+    type(Particle) :: p
+    integer :: filter_index
+
+    ! perform binary search
+    filter_index = binary_search(self % real_bins, self % n_bins + 1, &
+                   p % E)
+
+  end function energyout_filter_get_index
+
+!===============================================================================
+! ENERGYOUT_FILTER_SET_BINS is a special routine to set energy-out filter bins
+!===============================================================================
+
+  subroutine energyout_filter_set_bins(self, n_bins, bins)
+
+    class(EnergyOutFilterClass) :: self
+    integer :: n_bins
+    real(8) :: bins(:)
+
+    ! Set and allocate bins
+    self % n_bins = n_bins
+    allocate(self % real_bins(n_bins + 1))
+    self % real_bins = bins
+
+  end subroutine energyout_filter_set_bins
 
 end module tally_filter_class

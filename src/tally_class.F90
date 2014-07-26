@@ -24,6 +24,7 @@ module tally_class
     integer :: total_filter_bins = ZERO ! Total number of filter bins
     integer, allocatable :: stride(:)
     integer, allocatable :: matching_bins(:)
+    logical :: has_eout_filter = .false.
     type(TallyFilter_p), allocatable :: filters(:) ! Polymorphic array of filter objects
     type(TallyResultClass), allocatable :: results(:,:) ! Array of result objects
     type(TallyScore_p), allocatable :: scores(:) ! Polymorphic array of filter objects
@@ -189,7 +190,7 @@ module tally_class
     ! Loop through all filters and destroy
     do i = 1, self % n_filters
       call self % filters(i) % p % destroy()
-      if (associated(self % filters(i) % p)) nullify(self % filters(i) % p)
+      if (associated(self % filters(i) % p)) deallocate(self % filters(i) % p)
     end do
 
     ! Destroy tally results
@@ -212,11 +213,19 @@ module tally_class
     class(TallyClass) :: self
 
     integer :: i
+    class(TallyFilterClass), pointer :: f => null()
 
     ! Set total number of filter bins and scores
     do i = 1, self % n_filters 
       self % total_filter_bins = self % total_filter_bins + &
                                  self % filters(i) % p % get_n_bins()
+
+      ! Check for energy-out filter
+      select type(f => self % filters(i) % p)
+        type is (EnergyOutFilterClass)
+          self % has_eout_filter = .true.
+      end select
+
     end do 
     self % total_score_bins = self % n_scores
 
@@ -312,13 +321,15 @@ module tally_class
     class(TallyClass) :: self
     type(Particle) :: p
 
+    class(TallyScoreClass), pointer :: f => null()
     integer :: filter_index
     integer :: j
+    integer :: k
     real(8) :: score
     real(8) :: flux
     real(8) :: response
     real(8) :: weight
-    class(TallyScoreClass), pointer :: f => null()
+    type(Particle), pointer :: p_fiss => null()
 
     ! Get filter index
     filter_index = self % get_filter_index(p)
@@ -330,23 +341,68 @@ module tally_class
       select type(self)
 
       type is (AnalogTallyClass)
+
+        ! Check if event matches score type
         if (.not. self % scores(j) % p % score_match(p)) cycle
-        weight = self % scores(j) % p % get_weight(p)
-        score = weight
+
+        ! Get standard analog score
+        score = self % scores(j) % p % get_weight(p)
 
         ! Special cases
         select type(f => self % scores(j) % p)
 
+        ! Nu-fission score needs how many neutrons were produced
         type is (NuFissionScoreClass)
-          score = p % wgt_bank
+
+          ! For energy-out need to perform for each  
+          if (self % has_eout_filter) then
+
+            ! Loop around particles in bank
+            do k = 1, p % n_bank
+
+              ! Check to create particle
+              if (.not. associated(p_fiss)) allocate(p_fiss)
+              call p_fiss % initialize()
+
+              ! Copy bank attributes to fake fission particle
+              p_fiss % last_E = p % last_E
+              p_fiss % E = p % fission_bank(k) % E
+              p_fiss % wgt = p % fission_bank(k) % wgt
+              p_fiss % coord0 % xyz = p % fission_bank(k) % xyz
+
+              ! Get filter index
+              filter_index = self % get_filter_index(p_fiss)
+
+              ! Get standard analog score
+              score = p % keff * self % scores(j) % p % get_weight(p_fiss)
+
+              ! Add score to results array
+              call self % results(j, filter_index) % add(score)
+
+            end do
+
+          else
+
+            ! Get standard nu-fission score
+            score = p % keff * p % wgt_bank
+
+            ! Add score to results array
+            call self % results(j, filter_index) % add(score)
+
+          end if
 
         end select
 
       type is (TracklengthTallyClass)
+
+        ! Calculate standard tracklength score
         flux = self % get_flux(p)
         response = self % scores(j) % p % get_response(p)
         weight = self % scores(j) % p % get_weight(p)
         score = weight * response * flux
+
+        ! Add score to results array
+        call self % results(j, filter_index) % add(score)
 
       type is (CollisionTallyClass)
         flux = self % get_flux(p)
@@ -354,12 +410,18 @@ module tally_class
         weight = self % scores(j) % p % get_weight(p)
         score = weight * response * flux
 
+        ! Add score to results array
+        call self % results(j, filter_index) % add(score)
+
       end select
 
-      ! Add score to results array
-      call self % results(j, filter_index) % add(score)
-
     end do
+
+    ! Deallocate particle pointers if associated
+    if (associated(p_fiss)) then
+      call p_fiss % clear()
+      deallocate(p_fiss)
+    end if
 
   end subroutine tally_score
 
