@@ -323,7 +323,7 @@ module tally_class
     class(TallyClass) :: self
     type(Particle) :: p
 
-    class(TallyScoreClass), pointer :: f => null()
+    class(TallyScoreClass), pointer :: s => null()
     integer :: filter_index
     integer :: j
     integer :: k
@@ -351,7 +351,7 @@ module tally_class
         score = self % scores(j) % p % get_weight(p)
 
         ! Special cases
-        select type(f => self % scores(j) % p)
+        select type(s => self % scores(j) % p)
 
         ! Nu-fission score needs how many neutrons were produced
         type is (NuFissionScoreClass)
@@ -380,6 +380,16 @@ module tally_class
         response = self % scores(j) % p % get_response(p)
         weight = self % scores(j) % p % get_weight(p)
         score = weight * response * flux
+
+        ! Special cases
+        select type (s => self % scores(j) % p)
+
+        type is (NuFissionScoreClass)
+
+          ! Check to see if we need to sample a fission reaction
+          if (.not. associated(p_fiss)) call sample_fake_fission(p_fiss)
+
+        end select 
 
         ! Add score to results array
         call self % results(j, filter_index) % add(score)
@@ -588,5 +598,26 @@ module tally_class
     flux = ONE/p % material_xs % total
 
   end function collision_get_flux
+
+!===============================================================================
+! SAMPLE_FAKE_FISSION samples a fake fission reaction
+!===============================================================================
+
+  subroutine sample_fake_fission(p)
+
+    type(Particle) :: p
+
+    ! Sample nuclide for fission reaction
+!   i_nuclide_rxn = sample_nuclide(p_fake, 'fission')
+
+    ! Sample a fake fission
+!   call sample_fission(i_nuclide_rxn, i_reaction)
+
+    ! Set up pointers and get fission energy
+!   nuc => nuclides(i_nuclide_rxn)
+!   rxn => nuc % reactions(i_reaction)
+!   p_fake % E = sample_fission_energy(nuc, rxn, p_fake % last_E)
+
+  end subroutine sample_fake_fission
 
 end module tally_class
