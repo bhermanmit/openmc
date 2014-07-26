@@ -54,6 +54,8 @@ module tally_class
   ! Analog tally 
   type, extends(TallyClass), public :: AnalogTallyClass
     private
+    contains
+      procedure :: analog_nufission_eout
   end type AnalogTallyClass
 
   ! Constructor call for analog tally
@@ -357,29 +359,7 @@ module tally_class
           ! For energy-out need to perform for each  
           if (self % has_eout_filter) then
 
-            ! Loop around particles in bank
-            do k = 1, p % n_bank
-
-              ! Check to create particle
-              if (.not. associated(p_fiss)) allocate(p_fiss)
-              call p_fiss % initialize()
-
-              ! Copy bank attributes to fake fission particle
-              p_fiss % last_E = p % last_E
-              p_fiss % E = p % fission_bank(k) % E
-              p_fiss % wgt = p % fission_bank(k) % wgt
-              p_fiss % coord0 % xyz = p % fission_bank(k) % xyz
-
-              ! Get filter index
-              filter_index = self % get_filter_index(p_fiss)
-
-              ! Get standard analog score
-              score = p % keff * self % scores(j) % p % get_weight(p_fiss)
-
-              ! Add score to results array
-              call self % results(j, filter_index) % add(score)
-
-            end do
+            call self % analog_nufission_eout(p, p_fiss, j)
 
           else
 
@@ -495,6 +475,47 @@ module tally_class
     self % estimator = 'analog'
 
   end function analog_tally_init
+
+!===============================================================================
+! ANALOG_NUFISSION_EOUT scores nu-fission energy-out filter
+!===============================================================================
+
+  subroutine analog_nufission_eout(self, p, p_fiss, score_index)
+
+    class(AnalogTallyClass), intent(inout) :: self
+    integer :: score_index
+    type(Particle), intent(in) :: p
+    type(Particle), pointer, intent(inout) :: p_fiss
+
+    integer :: k
+    integer :: filter_index
+    real(8) :: score
+
+    ! Loop around particles in bank
+    do k = 1, p % n_bank
+
+      ! Check to create particle
+      if (.not. associated(p_fiss)) allocate(p_fiss)
+        call p_fiss % initialize()
+
+      ! Copy bank attributes to fake fission particle
+      p_fiss % last_E = p % last_E
+      p_fiss % E = p % fission_bank(k) % E
+      p_fiss % wgt = p % fission_bank(k) % wgt
+      p_fiss % coord0 % xyz = p % fission_bank(k) % xyz
+
+      ! Get filter index
+      filter_index = self % get_filter_index(p_fiss)
+
+      ! Get standard analog score
+      score = p % keff * self % scores(score_index) % p % get_weight(p_fiss)
+
+      ! Add score to results array
+      call self % results(score_index, filter_index) % add(score)
+
+    end do
+
+  end subroutine analog_nufission_eout
 
 !*******************************************************************************
 !*******************************************************************************
