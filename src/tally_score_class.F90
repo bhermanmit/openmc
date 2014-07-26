@@ -5,10 +5,9 @@ module tally_score_class
 
   implicit none
   private
-  public :: TallyScore_p, TallyScoreClass, TotalScoreClass
 
   ! General tally score type
-  type, abstract :: TallyScoreClass
+  type, abstract, public :: TallyScoreClass
     private
     character(len=MAX_WORD_LEN) :: type    ! Type of score
     real(8), pointer :: flux
@@ -22,10 +21,11 @@ module tally_score_class
 
   ! Abstract interface for deferred procedures
   abstract interface
-    function score_match_interface(self, event) result(match)
+    function score_match_interface(self, p) result(match)
       import TallyScoreClass
+      import Particle
       class(TallyScoreClass) :: self
-      integer :: event
+      type(Particle) :: p
       logical :: match
     end function score_match_interface
     function get_response_interface(self, p) result(response)
@@ -45,12 +45,12 @@ module tally_score_class
   end interface
 
   ! Tally score pointer
-  type :: TallyScore_p
+  type, public :: TallyScore_p
     class(TallyScoreClass), pointer :: p => null()
   end type TallyScore_p
 
   ! Total score type
-  type, extends(TallyScoreClass) :: TotalScoreClass
+  type, extends(TallyScoreClass), public :: TotalScoreClass
     private
     contains
       procedure, public :: score_match => total_score_match
@@ -59,6 +59,18 @@ module tally_score_class
   end type TotalScoreClass
   interface TotalScoreClass
     module procedure total_score_init
+  end interface
+
+  ! Nu-fission score type
+  type, extends(TallyScoreClass), public :: NuFissionScoreClass
+    private
+    contains
+      procedure, public :: score_match => nufission_score_match
+      procedure, public :: get_response => nufission_get_response
+      procedure, public :: get_weight => nufission_get_weight
+  end type NuFissionScoreClass
+  interface NuFissionScoreClass
+    module procedure nufission_score_init
   end interface
 
   contains
@@ -80,7 +92,7 @@ module tally_score_class
   end subroutine tally_score_destroy
 
 !===============================================================================
-! WRITE_SCORE
+! WRITE_SCORE writes out score information to a unit
 !===============================================================================
 
   subroutine write_score(self, unit)
@@ -118,19 +130,19 @@ module tally_score_class
 ! TOTAL_SCORE_MATCH results a true such that this tally is always scored
 !===============================================================================
 
-  function total_score_match(self, event) result(match)
+  function total_score_match(self, p) result(match)
 
     class(TotalScoreClass) :: self
-    integer :: event
+    type(Particle) :: p
     logical :: match
 
     ! Should evaluate to true always
-    match = (event == EVENT_SCATTER) .or. (event /= EVENT_SCATTER)
+    match = (p % event == EVENT_SCATTER) .or. (p % event /= EVENT_SCATTER)
 
   end function total_score_match
 
 !===============================================================================
-! TOTAL_GET_RESPONSE
+! TOTAL_GET_RESPONSE gets the total macro xs
 !===============================================================================
 
   function total_get_response(self, p) result(response)
@@ -156,5 +168,70 @@ module tally_score_class
     weight = p % last_wgt
 
   end function total_get_weight
+
+!*******************************************************************************
+!*******************************************************************************
+! Nu-fission score methods
+!*******************************************************************************
+!*******************************************************************************
+
+!===============================================================================
+! NUFISSION_SCORE_INIT allocates and sets up a NuFissionScoreClass instance
+!===============================================================================
+
+  function nufission_score_init() result(self)
+
+    class(NuFissionScoreClass), pointer :: self
+
+    ! Create object
+    allocate(self)
+
+    ! Set type of filter
+    self % type = 'nu-fission'
+
+  end function nufission_score_init
+
+!===============================================================================
+! NUFISSION_SCORE_MATCH checks for an implicit fission event
+!===============================================================================
+
+  function nufission_score_match(self, p) result(match)
+
+    class(NuFissionScoreClass) :: self
+    type(Particle) :: p
+    logical :: match
+
+    ! Get fission logical from particle
+    match = p % fission
+
+  end function nufission_score_match
+
+!===============================================================================
+! NUFISSION_GET_RESPONSE gets the nu-fission macro xs
+!===============================================================================
+
+  function nufission_get_response(self, p) result(response)
+
+    class(NuFissionScoreClass) :: self
+    type(Particle) :: p
+    real(8) :: response
+
+    response = p % material_xs % nu_fission
+
+  end function nufission_get_response
+
+!===============================================================================
+! NUFISSION_GET_WEIGHT returns the weight for a NuFissionScoreClass instance
+!===============================================================================
+
+  function nufission_get_weight(self, p) result(weight)
+
+    class(NuFissionScoreClass) :: self
+    type(Particle) :: p
+    real(8) :: weight
+
+    weight = p % wgt
+
+  end function nufission_get_weight
 
 end module tally_score_class

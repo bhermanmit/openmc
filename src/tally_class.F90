@@ -318,6 +318,7 @@ module tally_class
     real(8) :: flux
     real(8) :: response
     real(8) :: weight
+    class(TallyScoreClass), pointer :: f => null()
 
     ! Get filter index
     filter_index = self % get_filter_index(p)
@@ -325,23 +326,32 @@ module tally_class
     ! Loop around score bins
     do j = 1, self % n_scores
 
-      ! Get appropriate particle weight
-      weight = self % scores(j) % p % get_weight(p)
-
-      ! Calculate appropriate score 
+      ! Calculate appropriate score depending on TallyClass type
       select type(self)
 
       type is (AnalogTallyClass)
+        if (.not. self % scores(j) % p % score_match(p)) cycle
+        weight = self % scores(j) % p % get_weight(p)
         score = weight
+
+        ! Special cases
+        select type(f => self % scores(j) % p)
+
+        type is (NuFissionScoreClass)
+          score = p % wgt_bank
+
+        end select
 
       type is (TracklengthTallyClass)
         flux = self % get_flux(p)
         response = self % scores(j) % p % get_response(p)
+        weight = self % scores(j) % p % get_weight(p)
         score = weight * response * flux
 
       type is (CollisionTallyClass)
         flux = self % get_flux(p)
         response = self % scores(j) % p % get_response(p)
+        weight = self % scores(j) % p % get_weight(p)
         score = weight * response * flux
 
       end select

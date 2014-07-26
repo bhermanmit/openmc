@@ -5,9 +5,9 @@ module tally_new
   use output,             only: write_message
   use particle_header,    only: Particle
   use string,             only: lower_case
-  use tally_class,        only: TallyClass, AnalogTallyClass
-  use tally_filter_class, only: TallyFilterClass, EnergyFilterClass
-  use tally_score_class,  only: TallyScoreClass, TotalScoreClass
+  use tally_class
+  use tally_filter_class
+  use tally_score_class
   use xml_interface
 
   implicit none
@@ -195,6 +195,11 @@ module tally_new
 
             ! Allocate a total score
             s => TotalScoreClass() 
+
+          case('nu-fission')
+
+            ! Allocate a nu-fission score
+            s => NuFissionScoreClass()
 
           case default
 

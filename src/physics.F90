@@ -913,7 +913,7 @@ contains
 
     ! Store total weight banked for analog fission tallies
     p % n_bank   = nu
-    p % wgt_bank = nu/weight
+    p % wgt_bank = keff*nu/weight
 
   end subroutine create_fission_sites
 
