@@ -64,9 +64,12 @@ module tally_filter_class
   ! Mesh filter
   type, extends(TallyFilterClass), public :: MeshFilterClass
     private
+    integer :: n_crossings ! number of mesh crossings
+    integer :: i_crossing  ! current crossing
     type(StructuredMesh), pointer :: mesh
     contains
       procedure, public :: get_filter_index => mesh_filter_get_index
+      procedure, public :: get_crossings => mesh_filter_get_crossings
       procedure, public :: set_bins => mesh_filter_set_bins
   end type MeshFilterClass
   interface MeshFilterClass
@@ -287,6 +290,17 @@ module tally_filter_class
     self % type = 'mesh'
 
   end function mesh_filter_init
+
+!===============================================================================
+! MESH_FILTER_GET_CROSSINGS
+!===============================================================================
+
+  subroutine mesh_filter_get_crossings(self, n_crossings)
+ 
+    class(MeshFilterClass), intent(inout) :: self
+    integer, intent(out) :: n_crossings
+
+  end subroutine mesh_filter_get_crossings
 
 !===============================================================================
 ! MESH_FILTER_GET_INDEX returns the index for a mesh filter

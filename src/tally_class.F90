@@ -375,12 +375,6 @@ module tally_class
 
       type is (TracklengthTallyClass)
 
-        ! Calculate standard tracklength score
-        flux = self % get_flux(p)
-        response = self % scores(j) % p % get_response(p)
-        weight = self % scores(j) % p % get_weight(p)
-        score = weight * response * flux
-
         ! Special cases
         select type (s => self % scores(j) % p)
 
@@ -390,6 +384,15 @@ module tally_class
           if (.not. associated(p_fiss)) call sample_fake_fission(p_fiss)
 
         end select 
+
+        ! Check if there is a mesh filter
+!       if (self % has_mesh_filter) then
+
+        ! Calculate standard tracklength score
+        flux = self % get_flux(p)
+        response = self % scores(j) % p % get_response(p)
+        weight = self % scores(j) % p % get_weight(p)
+        score = weight * response * flux
 
         ! Add score to results array
         call self % results(j, filter_index) % add(score)
