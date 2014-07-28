@@ -31,9 +31,11 @@ module tally_new
     integer :: i
     integer :: int_scalar    ! temporary scalar integer
     integer :: j
+    integer :: k
     integer :: n_filters     ! number of filters
     integer :: n_words       ! number of words read
     integer :: n_scores      ! number of scores
+    integer, allocatable :: int_bins(:)
     logical :: file_exists
     real(8), allocatable :: real_bins(:)
     type(Node), pointer :: doc => null()
@@ -144,36 +146,64 @@ module tally_new
             call fatal_error(message)
           end if
 
-          ! Determine type of filter
+          ! Allocate type of filter
           select case (temp_str)
-          case ('energy')
 
-            ! Allocate an energy filter
+          case ('energy')
             f => EnergyFilterClass()
 
-            ! Read in bins and set to filter
-            allocate(real_bins(n_words))
-            call get_node_array(node_filt, "bins", real_bins)
-            call f % set_bins(n_words - 1, real_bins)
-            deallocate(real_bins)
-
           case ('energyout')
-
-            ! Allocate an energy-out filter
             f => EnergyOutFilterClass()
 
-            ! Read in bins and set to filter
-            allocate(real_bins(n_words))
-            call get_node_array(node_filt, "bins", real_bins)
-            call f % set_bins(n_words - 1, real_bins)
-            deallocate(real_bins)
- 
+          case ('mesh')
+            f => MeshFilterClass()
+
           case default
 
             ! Specified tally filter is invalid, raise error
             message = "Unknown filter type '" // &
                  trim(temp_str) // "' on tally "
             call fatal_error(message)
+
+          end select
+
+          ! Set up filters
+          select type (f)
+
+          type is (EnergyFilterClass)
+
+            ! Read in bins and set to filter
+            allocate(real_bins(n_words))
+            call get_node_array(node_filt, "bins", real_bins)
+            call f % set_bins(n_words - 1, real_bins)
+            deallocate(real_bins)
+
+          type is (EnergyOutFilterClass)
+
+            ! Read in bins and set to filter
+            allocate(real_bins(n_words))
+            call get_node_array(node_filt, "bins", real_bins)
+            call f % set_bins(n_words - 1, real_bins)
+            deallocate(real_bins)
+
+          type is (MeshFilterClass)
+
+            ! Check to make sure only one mesh index is specified
+            if (n_words /= 1) then
+              message = "Only one mesh can be specified in a filter."
+              call fatal_error(message)
+            end if
+
+            ! Read in mesh index
+            allocate(int_bins(1))
+            call get_node_array(node_filt, "bins", int_bins)
+
+            ! Get mesh index from id
+            int_bins(1) = mesh_dict % get_key(int_bins(1))
+
+            ! Set up mesh bins
+            call f % set_bins(meshes(int_bins(1)))
+            deallocate(int_bins)
 
           end select
 

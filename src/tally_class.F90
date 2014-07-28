@@ -366,12 +366,12 @@ module tally_class
             ! Get standard nu-fission score
             score = p % keff * p % wgt_bank
 
-            ! Add score to results array
-            call self % results(j, filter_index) % add(score)
-
           end if
 
         end select
+
+        ! Add score to results array
+        call self % results(j, filter_index) % add(score)
 
       type is (TracklengthTallyClass)
 

@@ -1,8 +1,10 @@
 module tally_filter_class
 
   use constants
+  use mesh_header,     only: StructuredMesh
+  use mesh,            only: get_mesh_bin
+  use particle_header, only: Particle
   use search,          only: binary_search
-  use particle_header
 
   implicit none
   private
@@ -16,9 +18,6 @@ module tally_filter_class
     real(8), allocatable :: real_bins(:)
     contains
       procedure, public :: get_n_bins
-      procedure :: set_int_bins
-      procedure :: set_real_bins 
-      generic, public :: set_bins => set_int_bins, set_real_bins
       procedure, public :: destroy => tally_filter_destroy
       procedure, public :: write => write_filter 
       procedure(filter_index_interface), deferred :: get_filter_index
@@ -45,7 +44,7 @@ module tally_filter_class
     private
     contains
       procedure, public :: get_filter_index => energy_filter_get_index
-      procedure, public :: set_real_bins => energy_filter_set_bins
+      procedure, public :: set_bins => energy_filter_set_bins
   end type EnergyFilterClass
   interface EnergyFilterClass
     module procedure energy_filter_init
@@ -56,10 +55,22 @@ module tally_filter_class
     private
     contains
       procedure, public :: get_filter_index => energyout_filter_get_index
-      procedure, public :: set_real_bins => energyout_filter_set_bins
+      procedure, public :: set_bins => energyout_filter_set_bins
   end type EnergyOutFilterClass
   interface EnergyOutFilterClass
     module procedure energyout_filter_init
+  end interface
+
+  ! Mesh filter
+  type, extends(TallyFilterClass), public :: MeshFilterClass
+    private
+    type(StructuredMesh), pointer :: mesh
+    contains
+      procedure, public :: get_filter_index => mesh_filter_get_index
+      procedure, public :: set_bins => mesh_filter_set_bins
+  end type MeshFilterClass
+  interface MeshFilterClass
+    module procedure mesh_filter_init
   end interface
 
   contains
@@ -189,9 +200,9 @@ module tally_filter_class
 
   subroutine energy_filter_set_bins(self, n_bins, bins)
 
-    class(EnergyFilterClass) :: self
-    integer :: n_bins
-    real(8) :: bins(:)
+    class(EnergyFilterClass), intent(inout) :: self
+    integer, intent(in) :: n_bins
+    real(8), intent(in) :: bins(:)
 
     ! Set and allocate bins
     self % n_bins = n_bins
@@ -244,9 +255,9 @@ module tally_filter_class
 
   subroutine energyout_filter_set_bins(self, n_bins, bins)
 
-    class(EnergyOutFilterClass) :: self
-    integer :: n_bins
-    real(8) :: bins(:)
+    class(EnergyOutFilterClass), intent(inout) :: self
+    integer, intent(in) :: n_bins
+    real(8), intent(in) :: bins(:)
 
     ! Set and allocate bins
     self % n_bins = n_bins
@@ -254,5 +265,63 @@ module tally_filter_class
     self % real_bins = bins
 
   end subroutine energyout_filter_set_bins
+
+!*******************************************************************************
+!*******************************************************************************
+! Mesh filter methods
+!*******************************************************************************
+!*******************************************************************************
+
+!===============================================================================
+! MESH_FILTER_INIT allocates and sets up a MeshFilterClass instance
+!===============================================================================
+
+  function mesh_filter_init() result(self)
+
+    class(MeshFilterClass), pointer :: self
+
+    ! Create object
+    allocate(self)
+
+    ! Set type of filter
+    self % type = 'mesh'
+
+  end function mesh_filter_init
+
+!===============================================================================
+! MESH_FILTER_GET_INDEX returns the index for a mesh filter
+!===============================================================================
+
+  function mesh_filter_get_index(self, p) result(filter_index)
+
+    class(MeshFilterClass) :: self
+    type(Particle) :: p
+    integer :: filter_index
+
+    integer :: bin_offset
+
+    ! Get mesh filter bin
+    call get_mesh_bin(self % mesh, p % coord0 % xyz, filter_index)
+
+  end function mesh_filter_get_index
+
+!===============================================================================
+! MESH_FILTER_SET_BINS is a special routine to set mesh filter bins
+!===============================================================================
+
+  subroutine mesh_filter_set_bins(self, mesh)
+
+    class(MeshFilterClass), intent(inout) :: self
+    type(StructuredMesh), target, intent(in) :: mesh
+
+    integer :: n_bins
+
+    ! Calculate total number of bins in mesh
+    self % n_bins = product(mesh % dimension)
+
+    ! Associate mesh
+    self % mesh => mesh
+
+  end subroutine mesh_filter_set_bins
 
 end module tally_filter_class
