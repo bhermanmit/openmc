@@ -9,7 +9,7 @@ module tally_score_class
   ! General tally score type
   type, abstract, public :: TallyScoreClass
     private
-    character(len=MAX_WORD_LEN) :: type    ! Type of score
+    integer :: type
     real(8), pointer :: flux
     real(8), pointer :: response
     contains
@@ -100,7 +100,7 @@ module tally_score_class
     class(TallyScoreClass), intent(inout) :: self
     integer, intent(in) :: unit
 
-    write(unit, *) "    Type:", trim(self % type)
+    write(unit, *) "    Type:", self % type
 
   end subroutine write_score
 
@@ -122,7 +122,7 @@ module tally_score_class
     allocate(self)
 
     ! Set type of filter
-    self % type = 'total'
+    self % type = SCORE_TOTAL
 
   end function total_score_init
 
@@ -187,7 +187,7 @@ module tally_score_class
     allocate(self)
 
     ! Set type of filter
-    self % type = 'nu-fission'
+    self % type = SCORE_NU_FISSION
 
   end function nufission_score_init
 

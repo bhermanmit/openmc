@@ -2,7 +2,9 @@ module tally_filter_class
 
   use constants
   use mesh_header,     only: StructuredMesh
-  use mesh,            only: get_mesh_bin
+  use mesh,            only: get_mesh_bin, mesh_intersects_2d, &
+                             mesh_intersects_3d, get_mesh_indices, &
+                             mesh_indices_to_bin
   use particle_header, only: Particle
   use search,          only: binary_search
 
@@ -12,12 +14,13 @@ module tally_filter_class
   ! General tally filter type
   type, abstract, public :: TallyFilterClass
     private
-    character(len=MAX_WORD_LEN) :: type    ! Type of filter
+    integer :: type
     integer :: n_bins
     integer, allocatable :: int_bins(:)
     real(8), allocatable :: real_bins(:)
     contains
       procedure, public :: get_n_bins
+      procedure, public :: get_type => get_tally_filter_type
       procedure, public :: destroy => tally_filter_destroy
       procedure, public :: write => write_filter 
       procedure(filter_index_interface), deferred :: get_filter_index
@@ -66,10 +69,15 @@ module tally_filter_class
     private
     integer :: n_crossings ! number of mesh crossings
     integer :: i_crossing  ! current crossing
+    integer :: ijk0(3) ! Current ijk location
+    real(8) :: xyz0(3) ! starting/intermediate coordinates
+    real(8) :: xyz1(3) ! Final xyz location of particle in mesh
+    real(8) :: xyz_cross(3) ! coordinates of next boundary
     type(StructuredMesh), pointer :: mesh
     contains
       procedure, public :: get_filter_index => mesh_filter_get_index
       procedure, public :: get_crossings => mesh_filter_get_crossings
+      procedure, public :: get_next_distance => mesh_filter_get_next_distance
       procedure, public :: set_bins => mesh_filter_set_bins
   end type MeshFilterClass
   interface MeshFilterClass
@@ -83,6 +91,19 @@ module tally_filter_class
 ! General abstract tally methods
 !*******************************************************************************
 !*******************************************************************************
+
+!===============================================================================
+! GET_TALLY_FILTER_TYPE returns the type of tally filter
+!===============================================================================
+
+  function get_tally_filter_type(self) result(filter_type)
+
+    class(TallyFilterClass) :: self
+    integer :: filter_type 
+
+    filter_type = self % type
+
+  end function get_tally_filter_type
 
 !===============================================================================
 ! GET_N_BINS returns the number of bins for TallyFilterClass instance
@@ -152,7 +173,7 @@ module tally_filter_class
     integer :: unit
 
     ! Write filter information
-    write(unit, *) "    Type:", trim(self % type)
+    write(unit, *) "    Type:", self % type
     write(unit, *) "    Number of bins:", self % n_bins
     if (allocated(self % int_bins)) write(unit, *) "    BINS:", self % int_bins
     if (allocated(self % real_bins)) write(unit, *) "    BINS:", self % real_bins
@@ -177,7 +198,7 @@ module tally_filter_class
     allocate(self)
 
     ! Set type of filter
-    self % type = 'energyin'
+    self % type = FILTER_ENERGYIN
 
   end function energy_filter_init
 
@@ -232,7 +253,7 @@ module tally_filter_class
     allocate(self)
 
     ! Set type of filter
-    self % type = 'energy-out'
+    self % type = FILTER_ENERGYOUT
 
   end function energyout_filter_init
 
@@ -287,7 +308,7 @@ module tally_filter_class
     allocate(self)
 
     ! Set type of filter
-    self % type = 'mesh'
+    self % type = FILTER_MESH
 
   end function mesh_filter_init
 
@@ -295,12 +316,148 @@ module tally_filter_class
 ! MESH_FILTER_GET_CROSSINGS
 !===============================================================================
 
-  subroutine mesh_filter_get_crossings(self, n_crossings)
+  subroutine mesh_filter_get_crossings(self, p, n_crossings)
  
     class(MeshFilterClass), intent(inout) :: self
+    type(Particle), intent(in) :: p
     integer, intent(out) :: n_crossings
 
+    integer :: j
+    integer :: ijk0(3)              ! indices of starting coordinates
+    integer :: ijk1(3)              ! indices of ending coordinates
+    logical :: start_in_mesh        ! starting coordinates inside mesh?
+    logical :: end_in_mesh          ! ending coordinates inside mesh?
+    real(8) :: uvw(3)               ! cosine of angle of particle
+    real(8) :: xyz0(3)              ! starting/intermediate coordinates
+    real(8) :: xyz1(3)              ! ending coordinates of particle
+    real(8) :: xyz_cross(3)         ! coordinates of next boundary
+    type(StructuredMesh), pointer, save :: m => null()
+
+    ! Initialize crossings to 0
+    n_crossings = 0
+
+    ! Copy starting and ending location of particle and angle
+    xyz0 = p % coord0 % xyz - (p % dist - TINY_BIT) * p % coord0 % uvw
+    xyz1 = p % coord0 % xyz  - TINY_BIT * p % coord0 % uvw
+    uvw = p % coord0 % uvw
+
+    ! Determine indices for starting and ending location
+    m => self % mesh
+    call get_mesh_indices(m, xyz0, ijk0(:m % n_dimension), start_in_mesh)
+    call get_mesh_indices(m, xyz1, ijk1(:m % n_dimension), end_in_mesh)
+
+    ! Check if start or end is in mesh -- if not, check if track still
+    ! intersects with mesh
+    if ((.not. start_in_mesh) .and. (.not. end_in_mesh)) then
+      if (m % n_dimension == 2) then
+        if (.not. mesh_intersects_2d(m, xyz0, xyz1)) return
+      else
+        if (.not. mesh_intersects_3d(m, xyz0, xyz1)) return
+      end if
+    end if
+
+    ! Reset starting and ending location
+    xyz0 = p % coord0 % xyz - p % dist * p % coord0 % uvw
+    xyz1 = p % coord0 % xyz
+
+    ! Calculate number of surface crossings
+    n_crossings = sum(abs(ijk1(:m % n_dimension) - ijk0(:m % n_dimension))) + 1
+
+    ! Bounding coordinates
+    do j = 1, m % n_dimension
+      if (uvw(j) > 0) then
+        xyz_cross(j) = m % lower_left(j) + ijk0(j) * m % width(j)
+      else
+        xyz_cross(j) = m % lower_left(j) + (ijk0(j) - 1) * m % width(j)
+      end if
+    end do
+
+    ! Bank to MeshFilterClass instance
+    self % n_crossings = n_crossings
+    self % i_crossing = 1
+    self % xyz0 = xyz0
+    self % xyz1 = xyz1
+    self % ijk0 = ijk0
+    self % xyz_cross = xyz_cross
+
   end subroutine mesh_filter_get_crossings
+
+!===============================================================================
+! MESH_FILTER_GET_NEXT_DISTANCE
+!===============================================================================
+
+  subroutine mesh_filter_get_next_distance(self, p, distance, bin, found_bin)
+
+    class(MeshFilterClass), intent(inout) :: self
+    type(Particle), intent(in) :: p
+    logical, intent(out) :: found_bin
+    integer, intent(out) :: bin
+    real(8), intent(out) :: distance
+    type(StructuredMesh), pointer, save :: m => null()
+
+    integer :: j
+    real(8) :: d(3)                 ! distance to each bounding surface
+    integer :: ijk0(3)              ! indices of starting coordinates
+    real(8) :: uvw(3)               ! cosine of angle of particle
+    real(8) :: xyz0(3)              ! starting/intermediate coordinates
+    real(8) :: xyz_cross(3)         ! coordinates of next boundary
+
+    ! Associate mesh pointer
+    m => self % mesh
+
+    ! Default found_bin to false
+    found_bin = .false.
+
+    ! Copy data from arguments
+    uvw = p % coord0 % uvw
+    ijk0 = self % ijk0
+    xyz0 = self % xyz0
+    xyz_cross = self % xyz_cross
+
+    ! If this is last crossing set cross to particle's coodinates
+    if (self % i_crossing == self % n_crossings) xyz_cross = self % xyz1
+
+    ! Calculate distance to each bounding surface. We need to treat special
+    ! case where the cosine of the angle is zero since this would result in a
+    ! divide-by-zero.
+    do j = 1, m % n_dimension
+      if (uvw(j) == 0) then
+        d(j) = INFINITY
+      else
+        d(j) = (xyz_cross(j) - xyz0(j))/uvw(j)
+      end if
+    end do
+
+    ! Determine the closest bounding surface of the mesh cell by calculating
+    ! the minimum distance
+    j = minloc(d(:m % n_dimension), 1)
+    distance = d(j)
+
+    ! Now use the minimum distance and direction of the particle to determine
+    ! which surface was crossed
+    if (all(ijk0(:m % n_dimension) >= 1) .and. all(ijk0(:m % n_dimension) <= m % dimension)) then
+      found_bin = .true.
+      bin = mesh_indices_to_bin(m, ijk0)
+    end if
+
+    ! Increment indices and determine new crossing point
+    if (uvw(j) > 0) then
+      ijk0(j) = ijk0(j) + 1
+      xyz_cross(j) = xyz_cross(j) + m % width(j)
+    else
+      ijk0(j) = ijk0(j) - 1
+      xyz_cross(j) = xyz_cross(j) - m % width(j)
+    end if
+
+    ! Calculate new coordinates and bank data
+    self % xyz0 = xyz0 + distance * uvw
+    self % ijk0 = ijk0
+    self % xyz_cross = xyz_cross
+
+    ! Increment i_crossing
+    self % i_crossing = self % i_crossing + 1
+
+  end subroutine mesh_filter_get_next_distance
 
 !===============================================================================
 ! MESH_FILTER_GET_INDEX returns the index for a mesh filter

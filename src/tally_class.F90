@@ -22,9 +22,12 @@ module tally_class
     integer :: n_scores = ZERO ! Number of scores
     integer :: total_score_bins = ZERO ! Total number of score bins
     integer :: total_filter_bins = ZERO ! Total number of filter bins
+    integer :: find_filter(N_FILTER_TYPES)
     integer, allocatable :: stride(:)
     integer, allocatable :: matching_bins(:)
     logical :: has_eout_filter = .false.
+    logical :: has_mesh_filter = .false.
+    type(MeshFilterClass), pointer :: mesh_filter => null()
     type(TallyFilter_p), allocatable :: filters(:) ! Polymorphic array of filter objects
     type(TallyResultClass), allocatable :: results(:,:) ! Array of result objects
     type(TallyScore_p), allocatable :: scores(:) ! Polymorphic array of filter objects
@@ -38,6 +41,8 @@ module tally_class
       procedure, public :: destroy => tally_destroy
       procedure, public :: finish_setup
       procedure :: get_filter_index
+      procedure :: set_filter_index
+      procedure :: setup_filter_indices
       procedure, public :: reset => tally_reset
       procedure :: setup_stride
       procedure, public :: set_id
@@ -120,7 +125,21 @@ module tally_class
 
     ! Set filter to array
     self % filters(self % i_filter) % p => filter
+
+    ! Set lookup id in find filter (for manual editing of filter indices)
+    self % find_filter(filter % get_type()) = self % i_filter
+
+    ! Increment counter for next filter
     self % i_filter = self % i_filter + 1
+
+    ! Check if its a mesh filter and associate shortcut
+    select type(filter)
+    type is (EnergyOutFilterClass)
+      self % has_eout_filter = .true.
+    type is (MeshFilterClass)
+      self % has_mesh_filter = .true.
+      self % mesh_filter => filter
+    end select
 
   end subroutine add_filter
 
@@ -221,13 +240,6 @@ module tally_class
     do i = 1, self % n_filters 
       self % total_filter_bins = self % total_filter_bins + &
                                  self % filters(i) % p % get_n_bins()
-
-      ! Check for energy-out filter
-      select type(f => self % filters(i) % p)
-        type is (EnergyOutFilterClass)
-          self % has_eout_filter = .true.
-      end select
-
     end do 
     self % total_score_bins = self % n_scores
 
@@ -240,14 +252,13 @@ module tally_class
   end subroutine finish_setup
 
 !===============================================================================
-! GET_FILTER_INDEX
+! SETUP_FILTER_INDICES sets up matching_bins array
 !===============================================================================
 
- function get_filter_index(self, p) result(filter_index)
+  subroutine setup_filter_indices(self, p)
 
-    class(TallyClass) :: self
-    type(Particle) :: p
-    integer :: filter_index
+    class(TallyClass), intent(inout) :: self
+    type(Particle), intent(in) :: p
 
     integer :: i
 
@@ -256,10 +267,41 @@ module tally_class
       self % matching_bins(i) = self % filters(i) % p % get_filter_index(p)
     end do
 
+  end subroutine setup_filter_indices
+
+!===============================================================================
+! SET_FILTER_INDEX sets an index for one filter manually
+!===============================================================================
+
+  subroutine set_filter_index(self, filter_type, filter_index)
+
+    class(TallyClass), intent(inout) :: self
+    integer, intent(in) :: filter_type
+    integer, intent(in) :: filter_index
+
+    integer :: idx ! temporary index
+
+    ! Look up array index from find_filter array
+    idx = self % find_filter(filter_type)
+
+    ! Set value in matching_bins array
+    self % matching_bins(idx) = filter_index
+
+  end subroutine set_filter_index
+
+!===============================================================================
+! GET_FILTER_INDEX calculates filter index from matching_bins array
+!===============================================================================
+
+  function get_filter_index(self) result(filter_index)
+
+    class(TallyClass) :: self
+    integer :: filter_index
+
     ! Calculate overall filter index
     filter_index = sum((self % matching_bins - 1) * self % stride) + 1
 
- end function get_filter_index
+  end function get_filter_index
 
 !===============================================================================
 ! SETUP_STRIDE
@@ -324,20 +366,20 @@ module tally_class
     type(Particle) :: p
 
     class(TallyScoreClass), pointer :: s => null()
+    integer :: bin ! mesh bin
     integer :: filter_index
     integer :: j
     integer :: k
-    real(8) :: score
-    real(8) :: flux
-    real(8) :: response
-    real(8) :: weight
+    integer :: n_cross ! number of surface crossings
+    logical :: found_bin
+    real(8) :: score ! the score to record
+    real(8) :: flux ! estimate of the flux
+    real(8) :: response ! tally response
+    real(8) :: weight ! some form of a neutron statistical weight
     type(Particle), pointer :: p_fiss => null()
 
-    ! Get filter index
-    filter_index = self % get_filter_index(p)
-
     ! Loop around score bins
-    do j = 1, self % n_scores
+    SCORE_LOOP: do j = 1, self % n_scores
 
       ! Calculate appropriate score depending on TallyClass type
       select type(self)
@@ -363,6 +405,10 @@ module tally_class
 
           else
 
+            ! Get filter index
+            call self % setup_filter_indices(p)
+            filter_index = self % get_filter_index()
+
             ! Get standard nu-fission score
             score = p % keff * p % wgt_bank
 
@@ -374,7 +420,6 @@ module tally_class
         call self % results(j, filter_index) % add(score)
 
       type is (TracklengthTallyClass)
-
         ! Special cases
         select type (s => self % scores(j) % p)
 
@@ -386,29 +431,78 @@ module tally_class
         end select 
 
         ! Check if there is a mesh filter
-!       if (self % has_mesh_filter) then
+        if (self % has_mesh_filter) then
 
-        ! Calculate standard tracklength score
-        flux = self % get_flux(p)
-        response = self % scores(j) % p % get_response(p)
-        weight = self % scores(j) % p % get_weight(p)
-        score = weight * response * flux
+          ! Get filter index
+          call self % setup_filter_indices(p)
 
-        ! Add score to results array
-        call self % results(j, filter_index) % add(score)
+          ! Get tally score response and weight
+          response = self % scores(j) % p % get_response(p)
+          weight = self % scores(j) % p % get_weight(p)
+
+          ! Get number of surface crossings
+          call self % mesh_filter % get_crossings(p, n_cross)
+
+          ! Loop around number of crossings and record
+          ! Maybe this shouldn't be on the inner most loop because
+          ! different score types will have the same flux contributions
+          do k = 1, n_cross
+
+            ! Get the distance traveled through a bin
+            call self % mesh_filter % get_next_distance(p, flux, bin, found_bin)
+
+            ! Don't continue if no bin was found
+            if (.not. found_bin) cycle
+
+            ! Alter filter indices
+            call self % set_filter_index(FILTER_MESH, bin)
+
+            ! Get overall filter index
+            filter_index = self % get_filter_index()
+
+            ! Calculate score
+            score = weight * response * flux
+
+            ! Add score to results array
+            call self % results(j, filter_index) % add(score)
+
+          end do 
+
+        else
+
+          ! Get filter index
+          call self % setup_filter_indices(p)
+          filter_index = self % get_filter_index()
+
+          ! Calculate standard tracklength score
+          flux = self % get_flux(p)
+          response = self % scores(j) % p % get_response(p)
+          weight = self % scores(j) % p % get_weight(p)
+          score = weight * response * flux
+
+          ! Add score to results array
+          call self % results(j, filter_index) % add(score)
+
+        end if
 
       type is (CollisionTallyClass)
+
+        ! Calculate score
         flux = self % get_flux(p)
         response = self % scores(j) % p % get_response(p)
         weight = self % scores(j) % p % get_weight(p)
         score = weight * response * flux
+
+        ! Get filter index
+        call self % setup_filter_indices(p)
+        filter_index = self % get_filter_index()
 
         ! Add score to results array
         call self % results(j, filter_index) % add(score)
 
       end select
 
-    end do
+    end do SCORE_LOOP
 
     ! Deallocate particle pointers if associated
     if (associated(p_fiss)) then
@@ -518,7 +612,8 @@ module tally_class
       p_fiss % coord0 % xyz = p % fission_bank(k) % xyz
 
       ! Get filter index
-      filter_index = self % get_filter_index(p_fiss)
+      call self % setup_filter_indices(p_fiss)
+      filter_index = self % get_filter_index()
 
       ! Get standard analog score
       score = p % keff * self % scores(score_index) % p % get_weight(p_fiss)
