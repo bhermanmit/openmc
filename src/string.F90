@@ -2,7 +2,6 @@ module string
 
   use constants, only: MAX_WORDS, MAX_LINE_LEN, ERROR_INT, ERROR_REAL
   use error,     only: warning
-  use global,    only: master
 
   implicit none
 
@@ -53,7 +52,7 @@ contains
           if (i_end - i_start + 1 > len(words(n))) then
             message = "The word '" // string(i_start:i_end) // &
                  "' is longer than the space allocated for it."
-            if (master) call warning(message)
+            call warning(message)
           end if
           words(n) = string(i_start:i_end)
           ! reset indices

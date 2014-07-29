@@ -102,6 +102,8 @@ module particle_header
   contains
     procedure :: initialize => initialize_particle
     procedure :: clear => clear_particle
+    procedure :: copy => copy_particle 
+    generic   :: assignment(=) => copy
   end type Particle
 
 contains
@@ -163,7 +165,26 @@ contains
   end subroutine initialize_particle
 
 !===============================================================================
-! CLEAR_PARTICLE
+! COPY_PARTICLE currently only copies what is necessary for physics sampling
+!===============================================================================
+
+  subroutine copy_particle(this, p)
+
+    class(Particle), intent(inout) :: this
+    class(Particle), intent(in) :: p
+
+    ! Copy attributes 
+    this % coord0 % xyz = p % coord0 % xyz
+    this % coord0 % uvw = p % coord0 % uvw
+    this % wgt = p % wgt
+    this % E = p % E
+    this % last_E = p % last_E
+    this % material => p % material
+
+  end subroutine copy_particle
+
+!===============================================================================
+! CLEAR_PARTICLE frees all memory associated with a particle
 !===============================================================================
 
   subroutine clear_particle(this)
