@@ -14,31 +14,25 @@ module tally_score_class
     real(8), pointer :: response
     contains
       procedure, public :: write => write_score
-      procedure(score_match_interface), deferred :: score_match
-      procedure(get_weight_interface), deferred :: get_weight
-      procedure(get_response_interface), deferred :: get_response
+      procedure(score_match_interface), deferred, nopass :: score_match
+      procedure(get_weight_interface), deferred, nopass :: get_weight
+      procedure(get_response_interface), deferred, nopass :: get_response
   end type TallyScoreClass
 
   ! Abstract interface for deferred procedures
   abstract interface
-    function score_match_interface(self, p) result(match)
-      import TallyScoreClass
+    function score_match_interface(p) result(match)
       import Particle
-      class(TallyScoreClass) :: self
       type(Particle) :: p
       logical :: match
     end function score_match_interface
-    function get_response_interface(self, p) result(response)
-      import TallyScoreClass
+    function get_response_interface(p) result(response)
       import Particle
-      class(TallyScoreClass) :: self
       type(Particle) :: p
       real(8) :: response
     end function get_response_interface
-    function get_weight_interface(self, p) result(weight)
-      import TallyScoreClass
+    function get_weight_interface(p) result(weight)
       import Particle
-      class(TallyScoreClass) :: self
       type(Particle) :: p
       real(8) :: weight
     end function get_weight_interface
@@ -53,9 +47,9 @@ module tally_score_class
   type, extends(TallyScoreClass), public :: TotalScoreClass
     private
     contains
-      procedure, public :: score_match => total_score_match
-      procedure, public :: get_response => total_get_response
-      procedure, public :: get_weight => total_get_weight
+      procedure, public, nopass :: score_match => total_score_match
+      procedure, public, nopass :: get_response => total_get_response
+      procedure, public, nopass :: get_weight => total_get_weight
   end type TotalScoreClass
   interface TotalScoreClass
     module procedure total_score_init
@@ -65,9 +59,9 @@ module tally_score_class
   type, extends(TallyScoreClass), public :: NuFissionScoreClass
     private
     contains
-      procedure, public :: score_match => nufission_score_match
-      procedure, public :: get_response => nufission_get_response
-      procedure, public :: get_weight => nufission_get_weight
+      procedure, public, nopass :: score_match => nufission_score_match
+      procedure, public, nopass :: get_response => nufission_get_response
+      procedure, public, nopass :: get_weight => nufission_get_weight
   end type NuFissionScoreClass
   interface NuFissionScoreClass
     module procedure nufission_score_init
@@ -130,9 +124,8 @@ module tally_score_class
 ! TOTAL_SCORE_MATCH results a true such that this tally is always scored
 !===============================================================================
 
-  function total_score_match(self, p) result(match)
+  function total_score_match(p) result(match)
 
-    class(TotalScoreClass) :: self
     type(Particle) :: p
     logical :: match
 
@@ -145,9 +138,8 @@ module tally_score_class
 ! TOTAL_GET_RESPONSE gets the total macro xs
 !===============================================================================
 
-  function total_get_response(self, p) result(response)
+  function total_get_response(p) result(response)
 
-    class(TotalScoreClass) :: self
     type(Particle) :: p
     real(8) :: response
 
@@ -159,9 +151,8 @@ module tally_score_class
 ! TOTAL_GET_WEIGHT returns the weight for a TotalScoreClass instance
 !===============================================================================
 
-  function total_get_weight(self, p) result(weight)
+  function total_get_weight(p) result(weight)
 
-    class(TotalScoreClass) :: self
     type(Particle) :: p
     real(8) :: weight
 
@@ -195,9 +186,8 @@ module tally_score_class
 ! NUFISSION_SCORE_MATCH checks for an implicit fission event
 !===============================================================================
 
-  function nufission_score_match(self, p) result(match)
+  function nufission_score_match(p) result(match)
 
-    class(NuFissionScoreClass) :: self
     type(Particle) :: p
     logical :: match
 
@@ -210,9 +200,8 @@ module tally_score_class
 ! NUFISSION_GET_RESPONSE gets the nu-fission macro xs
 !===============================================================================
 
-  function nufission_get_response(self, p) result(response)
+  function nufission_get_response(p) result(response)
 
-    class(NuFissionScoreClass) :: self
     type(Particle) :: p
     real(8) :: response
 
@@ -224,9 +213,8 @@ module tally_score_class
 ! NUFISSION_GET_WEIGHT returns the weight for a NuFissionScoreClass instance
 !===============================================================================
 
-  function nufission_get_weight(self, p) result(weight)
+  function nufission_get_weight(p) result(weight)
 
-    class(NuFissionScoreClass) :: self
     type(Particle) :: p
     real(8) :: weight
 

@@ -31,7 +31,6 @@ module tally_new
     integer :: i
     integer :: int_scalar    ! temporary scalar integer
     integer :: j
-    integer :: k
     integer :: n_filters     ! number of filters
     integer :: n_words       ! number of words read
     integer :: n_scores      ! number of scores
@@ -40,10 +39,8 @@ module tally_new
     real(8), allocatable :: real_bins(:)
     type(Node), pointer :: doc => null()
     type(Node), pointer :: node_filt => null()
-    type(Node), pointer :: node_mesh => null()
     type(Node), pointer :: node_tal => null()
     type(NodeList), pointer :: node_filt_list => null()
-    type(NodeList), pointer :: node_mesh_list => null()
     type(NodeList), pointer :: node_tal_list => null()
 
     ! Check if tallies.xml exists

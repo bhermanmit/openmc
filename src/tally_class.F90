@@ -83,7 +83,7 @@ module tally_class
   type, extends(TallyClass), public :: TracklengthTallyClass
     private
     contains
-      procedure :: get_flux => tracklength_get_flux
+      procedure, nopass :: get_flux => tracklength_get_flux
       procedure, public :: score => tracklength_tally_score
   end type TracklengthTallyClass
 
@@ -96,7 +96,7 @@ module tally_class
   type, extends(TallyClass), public :: CollisionTallyClass
     private
     contains
-      procedure :: get_flux => collision_get_flux
+      procedure, nopass :: get_flux => collision_get_flux
       procedure, public :: score => collision_tally_score
   end type CollisionTallyClass
 
@@ -247,7 +247,6 @@ module tally_class
     class(TallyClass) :: self
 
     integer :: i
-    class(TallyFilterClass), pointer :: f => null()
 
     ! Set total number of filter bins and scores
     do i = 1, self % n_filters 
@@ -491,13 +490,9 @@ module tally_class
     class(AnalogTallyClass) :: self
     type(Particle) :: p
 
-    class(TallyScoreClass), pointer :: s => null()
     integer :: filter_index
     integer :: j
     real(8) :: score ! the score to record
-    real(8) :: flux ! estimate of the flux
-    real(8) :: response ! tally response
-    real(8) :: weight ! some form of a neutron statistical weight
     type(Particle), pointer :: p_fiss => null()
 
     ! Loop around score bins
@@ -572,9 +567,8 @@ module tally_class
 ! TRACKLENGTH_GET_FLUX gets the flux estimator for a TracklengthTallyClass
 !===============================================================================
 
-  function tracklength_get_flux(self, p) result(flux)
+  function tracklength_get_flux(p) result(flux)
 
-    class(TracklengthTallyClass) :: self
     type(Particle) :: p
     real(8) :: flux
 
@@ -591,7 +585,6 @@ module tally_class
     class(TracklengthTallyClass) :: self
     type(Particle) :: p
 
-    class(TallyScoreClass), pointer :: s => null()
     integer :: bin ! mesh bin
     integer :: filter_index
     integer :: j
@@ -708,9 +701,8 @@ module tally_class
 ! COLLISION_GET_FLUX gets the flux estimator for a CollisionTallyClass
 !===============================================================================
 
-  function collision_get_flux(self, p) result(flux)
+  function collision_get_flux(p) result(flux)
 
-    class(CollisionTallyClass) :: self
     type(Particle) :: p
     real(8) :: flux
 
@@ -748,10 +740,8 @@ module tally_class
     class(CollisionTallyClass) :: self
     type(Particle) :: p
 
-    class(TallyScoreClass), pointer :: s => null()
     integer :: filter_index
     integer :: j
-    integer :: k
     real(8) :: score ! the score to record
     real(8) :: flux ! estimate of the flux
     real(8) :: response ! tally response
