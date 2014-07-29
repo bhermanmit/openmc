@@ -48,8 +48,18 @@ module tally_class
       procedure, public :: set_id
       procedure, public :: statistics => tally_statistics
       procedure, public :: write => write_tally
-      procedure, public :: score => tally_score
+      procedure(score_interface), deferred :: score
   end type TallyClass
+
+  ! Interface for deferred procedure
+  abstract interface
+    subroutine score_interface(self, p)
+      import TallyClass
+      import Particle
+      class(TallyClass), intent(inout) :: self
+      type(Particle), intent(in) :: p
+    end subroutine score_interface
+  end interface
 
   ! Tally pointer type
   type, public :: Tally_p
@@ -61,6 +71,7 @@ module tally_class
     private
     contains
       procedure :: analog_nufission_eout
+      procedure, public :: score => analog_tally_score
   end type AnalogTallyClass
 
   ! Constructor call for analog tally
@@ -73,6 +84,7 @@ module tally_class
     private
     contains
       procedure :: get_flux => tracklength_get_flux
+      procedure, public :: score => tracklength_tally_score
   end type TracklengthTallyClass
 
   ! Constructor call for tracklength tally
@@ -85,6 +97,7 @@ module tally_class
     private
     contains
       procedure :: get_flux => collision_get_flux
+      procedure, public :: score => collision_tally_score
   end type CollisionTallyClass
 
   ! Constructor call for collision tally
@@ -357,162 +370,6 @@ module tally_class
   end subroutine tally_reset
 
 !===============================================================================
-! TALLY_SCORE performs a score to a tally
-!===============================================================================
-
-  subroutine tally_score(self, p)
-
-    class(TallyClass) :: self
-    type(Particle) :: p
-
-    class(TallyScoreClass), pointer :: s => null()
-    integer :: bin ! mesh bin
-    integer :: filter_index
-    integer :: j
-    integer :: k
-    integer :: n_cross ! number of surface crossings
-    logical :: found_bin
-    real(8) :: score ! the score to record
-    real(8) :: flux ! estimate of the flux
-    real(8) :: response ! tally response
-    real(8) :: weight ! some form of a neutron statistical weight
-    type(Particle), pointer :: p_fiss => null()
-
-    ! Loop around score bins
-    SCORE_LOOP: do j = 1, self % n_scores
-
-      ! Calculate appropriate score depending on TallyClass type
-      select type(self)
-
-      type is (AnalogTallyClass)
-
-        ! Check if event matches score type
-        if (.not. self % scores(j) % p % score_match(p)) cycle
-
-        ! Get standard analog score
-        score = self % scores(j) % p % get_weight(p)
-
-        ! Special cases
-        select type(s => self % scores(j) % p)
-
-        ! Nu-fission score needs how many neutrons were produced
-        type is (NuFissionScoreClass)
-
-          ! For energy-out need to perform for each  
-          if (self % has_eout_filter) then
-
-            call self % analog_nufission_eout(p, p_fiss, j)
-
-          else
-
-            ! Get filter index
-            call self % setup_filter_indices(p)
-            filter_index = self % get_filter_index()
-
-            ! Get standard nu-fission score
-            score = p % keff * p % wgt_bank
-
-          end if
-
-        end select
-
-        ! Add score to results array
-        call self % results(j, filter_index) % add(score)
-
-      type is (TracklengthTallyClass)
-        ! Special cases
-        select type (s => self % scores(j) % p)
-
-        type is (NuFissionScoreClass)
-
-          ! Check to see if we need to sample a fission reaction
-          if (.not. associated(p_fiss)) call sample_fake_fission(p_fiss)
-
-        end select 
-
-        ! Check if there is a mesh filter
-        if (self % has_mesh_filter) then
-
-          ! Get filter index
-          call self % setup_filter_indices(p)
-
-          ! Get tally score response and weight
-          response = self % scores(j) % p % get_response(p)
-          weight = self % scores(j) % p % get_weight(p)
-
-          ! Get number of surface crossings
-          call self % mesh_filter % get_crossings(p, n_cross)
-
-          ! Loop around number of crossings and record
-          ! Maybe this shouldn't be on the inner most loop because
-          ! different score types will have the same flux contributions
-          do k = 1, n_cross
-
-            ! Get the distance traveled through a bin
-            call self % mesh_filter % get_next_distance(p, flux, bin, found_bin)
-
-            ! Don't continue if no bin was found
-            if (.not. found_bin) cycle
-
-            ! Alter filter indices
-            call self % set_filter_index(FILTER_MESH, bin)
-
-            ! Get overall filter index
-            filter_index = self % get_filter_index()
-
-            ! Calculate score
-            score = weight * response * flux
-
-            ! Add score to results array
-            call self % results(j, filter_index) % add(score)
-
-          end do 
-
-        else
-
-          ! Get filter index
-          call self % setup_filter_indices(p)
-          filter_index = self % get_filter_index()
-
-          ! Calculate standard tracklength score
-          flux = self % get_flux(p)
-          response = self % scores(j) % p % get_response(p)
-          weight = self % scores(j) % p % get_weight(p)
-          score = weight * response * flux
-
-          ! Add score to results array
-          call self % results(j, filter_index) % add(score)
-
-        end if
-
-      type is (CollisionTallyClass)
-
-        ! Calculate score
-        flux = self % get_flux(p)
-        response = self % scores(j) % p % get_response(p)
-        weight = self % scores(j) % p % get_weight(p)
-        score = weight * response * flux
-
-        ! Get filter index
-        call self % setup_filter_indices(p)
-        filter_index = self % get_filter_index()
-
-        ! Add score to results array
-        call self % results(j, filter_index) % add(score)
-
-      end select
-
-    end do SCORE_LOOP
-
-    ! Deallocate particle pointers if associated
-    if (associated(p_fiss)) then
-      call p_fiss % clear()
-      deallocate(p_fiss)
-    end if
-
-  end subroutine tally_score
-
-!===============================================================================
 ! TALLY_STATISTICS
 !===============================================================================
 
@@ -625,6 +482,70 @@ module tally_class
 
   end subroutine analog_nufission_eout
 
+!===============================================================================
+! ANALOG_TALLY_SCORE performs a score to an analog tally
+!===============================================================================
+
+  subroutine analog_tally_score(self, p)
+
+    class(AnalogTallyClass) :: self
+    type(Particle) :: p
+
+    class(TallyScoreClass), pointer :: s => null()
+    integer :: filter_index
+    integer :: j
+    real(8) :: score ! the score to record
+    real(8) :: flux ! estimate of the flux
+    real(8) :: response ! tally response
+    real(8) :: weight ! some form of a neutron statistical weight
+    type(Particle), pointer :: p_fiss => null()
+
+    ! Loop around score bins
+    SCORE_LOOP: do j = 1, self % n_scores
+
+      ! Check if event matches score type
+      if (.not. self % scores(j) % p % score_match(p)) cycle
+
+      ! Get standard analog score
+      score = self % scores(j) % p % get_weight(p)
+
+      ! Special cases
+      select type(s => self % scores(j) % p)
+
+      ! Nu-fission score needs how many neutrons were produced
+      type is (NuFissionScoreClass)
+
+        ! For energy-out need to perform for each  
+        if (self % has_eout_filter) then
+
+          call self % analog_nufission_eout(p, p_fiss, j)
+          cycle
+
+        else
+
+          score = p % keff * p % wgt_bank
+
+        end if
+
+      end select
+
+      ! Get filter index
+      call self % setup_filter_indices(p)
+      filter_index = self % get_filter_index()
+
+      ! Add score to results array
+      call self % results(j, filter_index) % add(score)
+
+    end do SCORE_LOOP
+
+    ! Deallocate particle pointers if associated
+    if (associated(p_fiss)) then
+      call p_fiss % clear()
+      deallocate(p_fiss)
+    end if
+
+  end subroutine analog_tally_score
+
 !*******************************************************************************
 !*******************************************************************************
 ! Tracklength tally methods
@@ -660,6 +581,106 @@ module tally_class
     flux = p % dist
 
   end function tracklength_get_flux
+
+!===============================================================================
+! TRACKLENGTH_TALLY_SCORE performs a score to a tracklength tally
+!===============================================================================
+
+  subroutine tracklength_tally_score(self, p)
+
+    class(TracklengthTallyClass) :: self
+    type(Particle) :: p
+
+    class(TallyScoreClass), pointer :: s => null()
+    integer :: bin ! mesh bin
+    integer :: filter_index
+    integer :: j
+    integer :: k
+    integer :: n_cross ! number of surface crossings
+    logical :: found_bin
+    real(8) :: score ! the score to record
+    real(8) :: flux ! estimate of the flux
+    real(8) :: response ! tally response
+    real(8) :: weight ! some form of a neutron statistical weight
+    type(Particle), pointer :: p_fiss => null()
+
+    ! Loop around score bins
+    SCORE_LOOP: do j = 1, self % n_scores
+
+      ! Special cases
+      select type (s => self % scores(j) % p)
+
+      type is (NuFissionScoreClass)
+
+        ! Check to see if we need to sample a fission reaction
+        if (.not. associated(p_fiss)) call sample_fake_fission(p_fiss)
+
+      end select 
+
+      ! Check if there is a mesh filter
+      if (self % has_mesh_filter) then
+
+        ! Get filter index
+        call self % setup_filter_indices(p)
+
+        ! Get tally score response and weight
+        response = self % scores(j) % p % get_response(p)
+        weight = self % scores(j) % p % get_weight(p)
+
+        ! Get number of surface crossings
+        call self % mesh_filter % get_crossings(p, n_cross)
+
+        ! Loop around number of crossings and record
+        ! Maybe this shouldn't be on the inner most loop because
+        ! different score types will have the same flux contributions
+        do k = 1, n_cross
+
+          ! Get the distance traveled through a bin
+          call self % mesh_filter % get_next_distance(p, flux, bin, found_bin)
+
+          ! Don't continue if no bin was found
+          if (.not. found_bin) cycle
+
+          ! Alter filter indices
+          call self % set_filter_index(FILTER_MESH, bin)
+
+          ! Get overall filter index
+          filter_index = self % get_filter_index()
+
+          ! Calculate score
+          score = weight * response * flux
+
+          ! Add score to results array
+          call self % results(j, filter_index) % add(score)
+
+        end do 
+
+      else
+
+        ! Get filter index
+        call self % setup_filter_indices(p)
+        filter_index = self % get_filter_index()
+
+        ! Calculate standard tracklength score
+        flux = self % get_flux(p)
+        response = self % scores(j) % p % get_response(p)
+        weight = self % scores(j) % p % get_weight(p)
+        score = weight * response * flux
+
+        ! Add score to results array
+        call self % results(j, filter_index) % add(score)
+
+      end if
+
+    end do SCORE_LOOP
+
+    ! Deallocate particle pointers if associated
+    if (associated(p_fiss)) then
+      call p_fiss % clear()
+      deallocate(p_fiss)
+    end if
+
+  end subroutine tracklength_tally_score
 
 !*******************************************************************************
 !*******************************************************************************
@@ -717,5 +738,50 @@ module tally_class
 !   p_fake % E = sample_fission_energy(nuc, rxn, p_fake % last_E)
 
   end subroutine sample_fake_fission
+
+!===============================================================================
+! COLLISION_TALLY_SCORE performs a score to a collision tally
+!===============================================================================
+
+  subroutine collision_tally_score(self, p)
+
+    class(CollisionTallyClass) :: self
+    type(Particle) :: p
+
+    class(TallyScoreClass), pointer :: s => null()
+    integer :: filter_index
+    integer :: j
+    integer :: k
+    real(8) :: score ! the score to record
+    real(8) :: flux ! estimate of the flux
+    real(8) :: response ! tally response
+    real(8) :: weight ! some form of a neutron statistical weight
+    type(Particle), pointer :: p_fiss => null()
+
+    ! Loop around score bins
+    SCORE_LOOP: do j = 1, self % n_scores
+
+      ! Calculate score
+      flux = self % get_flux(p)
+      response = self % scores(j) % p % get_response(p)
+      weight = self % scores(j) % p % get_weight(p)
+      score = weight * response * flux
+
+      ! Get filter index
+      call self % setup_filter_indices(p)
+      filter_index = self % get_filter_index()
+
+      ! Add score to results array
+      call self % results(j, filter_index) % add(score)
+
+    end do SCORE_LOOP
+
+    ! Deallocate particle pointers if associated
+    if (associated(p_fiss)) then
+      call p_fiss % clear()
+      deallocate(p_fiss)
+    end if
+
+  end subroutine collision_tally_score
 
 end module tally_class
