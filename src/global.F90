@@ -67,7 +67,7 @@ module global
   type(XsListing),  allocatable, target :: xs_listings(:) ! cross_sections.xml listings 
 
   ! Cross section caches
-  type(NuclideMicroXS), allocatable :: micro_xs(:)  ! Cache for each nuclide
+  type(NuclideMicroXS), allocatable, target :: micro_xs(:)  ! Cache for each nuclide
   type(MaterialMacroXS), target     :: material_xs  ! Cache for current material
 
   integer :: n_nuclides_total ! Number of nuclide cross section tables
@@ -180,14 +180,14 @@ module global
 #ifdef _OPENMP
   type(Bank), allocatable, target :: master_fission_bank(:)
 #endif
-  integer(8) :: n_bank       ! # of sites in fission bank
+  integer(8), target :: n_bank       ! # of sites in fission bank
   integer(8) :: work         ! number of particles per processor
   integer(8), allocatable :: work_index(:) ! starting index in source bank for each process
   integer(8) :: current_work ! index in source bank of current history simulated
 
   ! Temporary k-effective values
   real(8), allocatable :: k_generation(:) ! single-generation estimates of k
-  real(8) :: keff = ONE       ! average k over active batches
+  real(8), target :: keff = ONE       ! average k over active batches
   real(8) :: keff_std         ! standard deviation of average k
   real(8) :: k_col_abs = ZERO ! sum over batches of k_collision * k_absorption
   real(8) :: k_col_tra = ZERO ! sum over batches of k_collision * k_tracklength
@@ -252,9 +252,9 @@ module global
   ! ===========================================================================
   ! VARIANCE REDUCTION VARIABLES
 
-  logical :: survival_biasing = .false.
-  real(8) :: weight_cutoff = 0.25
-  real(8) :: weight_survive = 1.0
+  logical, target :: survival_biasing = .false.
+  real(8), target :: weight_cutoff = 0.25
+  real(8), target :: weight_survive = 1.0
 
   ! ============================================================================
   ! HDF5 VARIABLES

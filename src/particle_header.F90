@@ -1,9 +1,11 @@
 module particle_header
 
-  use ace_header,      only: MaterialMacroXS
+  use ace_header,      only: MaterialMacroXS, NuclideMicroXS, Nuclide, &
+                             SAlphaBeta 
   use bank_header,     only: Bank
   use constants,       only: NEUTRON, ONE, NONE, ZERO
   use geometry_header, only: BASE_UNIVERSE
+  use material_header, only: Material
 
   implicit none
 
@@ -69,20 +71,27 @@ module particle_header
     ! How far did the neutron travel
     real(8), pointer :: dist
 
-    ! Pointer to material macroscopic xs
-    type(MaterialMacroXS), pointer :: material_xs
+    ! Pointer to global memory
+    type(Bank), pointer :: fission_bank(:) => null()
+    type(MaterialMacroXS), pointer :: material_xs => null()
+    type(NuclideMicroXS), pointer :: micro_xs(:) => null()
+    type(Nuclide), pointer :: nuclides(:) => null()
+    type(SAlphaBeta), pointer :: sab_tables(:) => null()
+    logical, pointer :: survival_biasing => null()
+    real(8), pointer :: weight_survive => null()
+    real(8), pointer :: weight_cutoff => null()
 
     ! Post-collision physical data
-    integer    :: n_bank        ! number of fission sites banked
-    real(8)    :: wgt_bank      ! weight of fission sites banked
-    real(8)    :: keff          ! keff used in physics module
-    type(Bank), pointer :: fission_bank(:) => null()
+    integer :: nu ! number of fission sites banked
+    integer(8), pointer :: n_bank ! current number of fission sites banked
+    real(8) :: wgt_bank ! weight of fission sites banked
+    real(8), pointer :: keff ! keff used in physics module
 
     ! Indices for various arrays
     integer    :: surface       ! index for surface particle is on
     integer    :: cell_born     ! index for cell particle was born in
-    integer    :: material      ! index for current material
-    integer    :: last_material ! index for last material
+    type(Material), pointer :: material => null() ! current material
+    type(Material), pointer :: last_material => null() ! current material
 
     ! Statistical data
     integer    :: n_collision   ! # of collisions
@@ -136,12 +145,12 @@ contains
     ! clear attributes
     this % surface       = NONE
     this % cell_born     = NONE
-    this % material      = NONE
-    this % last_material = NONE
+    this % material      => null()
+    this % last_material => null()
     this % wgt           = ONE
     this % last_wgt      = ONE
     this % absorb_wgt    = ZERO
-    this % n_bank        = 0
+    this % nu            = 0
     this % wgt_bank      = ZERO
     this % n_collision   = 0
     this % fission       = .false.

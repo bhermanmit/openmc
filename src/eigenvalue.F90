@@ -49,6 +49,9 @@ contains
     ! Display column titles
     if(master) call print_columns()
 
+    ! Set pointers in particle to global memory location
+    call set_particle_pointers(p)
+
     ! Turn on inactive timer
     call time_inactive % start()
 
@@ -110,6 +113,28 @@ contains
     call p % clear()
 
   end subroutine run_eigenvalue
+
+!===============================================================================
+! SET_PARTICLE_POINTERS
+!===============================================================================
+
+  subroutine set_particle_pointers(p)
+
+    type(Particle), intent(inout) :: p
+
+    ! Associate all pointers to global memory location
+    p % fission_bank => fission_bank
+    p % keff => keff
+    p % material_xs => material_xs
+    p % micro_xs => micro_xs
+    p % nuclides => nuclides
+    p % n_bank => n_bank
+    p % sab_tables => sab_tables
+    p % survival_biasing => survival_biasing
+    p % weight_cutoff => weight_cutoff
+    p % weight_survive => weight_survive
+
+  end subroutine set_particle_pointers
 
 !===============================================================================
 ! INITIALIZE_BATCH

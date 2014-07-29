@@ -8,6 +8,7 @@ module material_header
 
   type Material
     integer              :: id              ! unique identifier
+    integer              :: idx             ! index in materials array
     integer              :: n_nuclides      ! number of nuclides
     integer, allocatable :: nuclide(:)      ! index in nuclides array
     real(8)              :: density         ! total atom density in atom/b-cm

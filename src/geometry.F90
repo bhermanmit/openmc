@@ -190,8 +190,12 @@ contains
           ! AT LOWEST UNIVERSE, TERMINATE SEARCH
 
           ! set material
-          p % last_material = p % material
-          p % material = c % material
+          p % last_material => p % material
+          if (c % material == MATERIAL_VOID) then
+            p % material => null()
+          else
+            p % material => materials(c % material)
+          end if
 
         elseif (c % type == CELL_FILL) then
           ! ====================================================================
@@ -288,8 +292,12 @@ contains
               ! the material specified for the outside
 
               outside_lattice = .true.
-              p % last_material = p % material
-              p % material = c % material
+              p % last_material => p % material
+              if (c % material == MATERIAL_VOID) then
+                p % material => null()
+              else
+                p % material => materials(c % material)
+              end if
 
               ! We'll still make a new coordinate for the particle, as 
               ! distance_to_boundary will still need to track through lattice

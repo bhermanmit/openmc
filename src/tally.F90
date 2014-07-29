@@ -704,7 +704,7 @@ contains
       filter_index = sum((matching_bins(1:t%n_filters) - 1) * t % stride) + 1
 
       if (t % all_nuclides) then
-        if (p % material /= MATERIAL_VOID) then
+        if (associated(p % material)) then
           call score_all_nuclides(p, i_tally, flux, filter_index)
         end if
       else
@@ -714,9 +714,9 @@ contains
           i_nuclide = t % nuclide_bins(k)
 
           if (i_nuclide > 0) then
-            if (p % material /= MATERIAL_VOID) then
+            if (associated(p % material)) then
               ! Get pointer to current material
-              mat => materials(p % material)
+              mat => p % material
 
               ! Determine if nuclide is actually in material
               NUCLIDE_MAT_LOOP: do j = 1, mat % n_nuclides
@@ -974,7 +974,7 @@ contains
                   score = ZERO
 
                   ! Get pointer to current material
-                  mat => materials(p % material)
+                  mat => p % material
 
                   do l = 1, mat % n_nuclides
                     ! Get atom density
@@ -1077,7 +1077,7 @@ contains
 
     ! Get pointer to current material. We need this in order to determine what
     ! nuclides are in the material
-    mat => materials(p % material)
+    mat => p % material
 
     ! ==========================================================================
     ! SCORE ALL INDIVIDUAL NUCLIDE REACTION RATES
@@ -1326,7 +1326,7 @@ contains
           score = ZERO
 
           ! Get pointer to current material
-          mat => materials(p % material)
+          mat => p % material
 
           do i = 1, mat % n_nuclides
             ! Get atom density
@@ -1470,7 +1470,7 @@ contains
 
       case (FILTER_MATERIAL)
         matching_bins(i) = get_next_bin(FILTER_MATERIAL, &
-             p % material, i_tally)
+             p % material % idx, i_tally)
 
       case (FILTER_CELL)
         ! determine next cell bin
@@ -1587,7 +1587,7 @@ contains
         filter_index = sum((matching_bins(1:t%n_filters) - 1) * t % stride) + 1
 
         if (t % all_nuclides) then
-          if (p % material /= MATERIAL_VOID) then
+          if (associated(p % material)) then
             ! Score reaction rates for each nuclide in material
             call score_all_nuclides(p, i_tally, flux, filter_index)
           end if
@@ -1597,9 +1597,9 @@ contains
             i_nuclide = t % nuclide_bins(b)
 
             if (i_nuclide > 0) then
-              if (p % material /= MATERIAL_VOID) then
+              if (associated(p % material)) then
                 ! Get pointer to current material
-                mat => materials(p % material)
+                mat => p % material
 
                 ! Determine if nuclide is actually in material
                 NUCLIDE_MAT_LOOP: do j = 1, mat % n_nuclides
@@ -1851,7 +1851,7 @@ contains
 
       case (FILTER_MATERIAL)
         matching_bins(i) = get_next_bin(FILTER_MATERIAL, &
-             p % material, i_tally)
+             p % material % idx, i_tally)
 
       case (FILTER_CELL)
         ! determine next cell bin

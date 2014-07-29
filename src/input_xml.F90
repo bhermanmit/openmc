@@ -1390,6 +1390,7 @@ contains
 
     do i = 1, n_materials
       mat => materials(i)
+      mat % idx = i
 
       ! Get pointer to i-th material node
       call get_list_item(node_mat_list, i, node_mat)

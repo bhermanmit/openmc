@@ -469,8 +469,6 @@ module tally_filter_class
     type(Particle) :: p
     integer :: filter_index
 
-    integer :: bin_offset
-
     ! Get mesh filter bin
     call get_mesh_bin(self % mesh, p % coord0 % xyz, filter_index)
 
@@ -484,8 +482,6 @@ module tally_filter_class
 
     class(MeshFilterClass), intent(inout) :: self
     type(StructuredMesh), target, intent(in) :: mesh
-
-    integer :: n_bins
 
     ! Calculate total number of bins in mesh
     self % n_bins = product(mesh % dimension)

@@ -90,10 +90,7 @@ contains
       ! material is the same as the last material and the energy of the
       ! particle hasn't changed, we don't need to lookup cross sections again.
 
-      if (p % material /= p % last_material) call calculate_xs(p)
-
-      ! Set pointer in material to the material_xs
-      p % material_xs => material_xs
+      if (.not.associated(p % material, p % last_material)) call calculate_xs(p)
 
       ! Find the distance to the nearest boundary
       call distance_to_boundary(p, d_boundary, surface_crossed, lattice_crossed)
@@ -181,7 +178,7 @@ contains
         if (active_analog_tallies % size() > 0) call score_analog_tallies_new(p)
 
         ! Reset banked weight during collision
-        p % n_bank   = 0
+        p % nu = 0
         p % wgt_bank = ZERO
 
         ! Reset fission logical
@@ -196,7 +193,7 @@ contains
 
         ! Set last material to none since cross sections will need to be
         ! re-evaluated
-        p % last_material = NONE
+        p % last_material => null()
 
         ! Set all uvws to base level -- right now, after a collision, only the
         ! base level uvws are changed

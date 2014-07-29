@@ -455,7 +455,8 @@ module tally_class
     real(8) :: score
 
     ! Loop around particles in bank
-    do k = 1, p % n_bank
+    do k = p % n_bank + 1, &
+      min(p % n_bank + int(p % nu,8), int(size(p % fission_bank),8))
 
       ! Check to create particle
       if (.not. associated(p_fiss)) allocate(p_fiss)

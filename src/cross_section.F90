@@ -45,9 +45,9 @@ contains
     material_xs % kappa_fission  = ZERO
 
     ! Exit subroutine if material is void
-    if (p % material == MATERIAL_VOID) return
+    if (.not. associated(p % material)) return
 
-    mat => materials(p % material)
+    mat => p % material
 
     ! Find energy index on unionized grid
     if (grid_method == GRID_UNION) call find_energy_index(p % E)
@@ -127,6 +127,9 @@ contains
       material_xs % kappa_fission = material_xs % kappa_fission + &
            atom_density * micro_xs(i_nuclide) % kappa_fission
     end do
+
+    p % material_xs => material_xs
+    p % micro_xs => micro_xs
 
   end subroutine calculate_xs
 
