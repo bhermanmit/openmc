@@ -25,19 +25,19 @@ module tally
 
     do i = 1, n_user_tallies
       ! Add tally to active tallies
-      call active_tallies % add(i)
+      call active_tallies % add(i_user_tallies + i)
 
       ! Check what type of tally this is and add it to the appropriate list
-      select type(t => tallies(i) % p)
+      select type(t => tallies(i_user_tallies + i) % p)
 
       type is (AnalogTallyClass)
-        call active_analog_tallies % add(i)
+        call active_analog_tallies % add(i_user_tallies + i)
 
       type is (TracklengthTallyClass)
-        call active_tracklength_tallies % add(i)
+        call active_tracklength_tallies % add(i_user_tallies + i)
 
       type is (CollisionTallyClass)
-        call active_collision_tallies % add(i)
+        call active_collision_tallies % add(i_user_tallies + i)
 
       end select
     end do
@@ -109,7 +109,7 @@ module tally
 
     integer :: i
 
-    do i = 1, n_user_tallies
+    do i = 1, n_tallies
       call tallies(i) % p % destroy()
     end do
 
@@ -124,7 +124,7 @@ module tally
     integer :: i
 
     ! All tallies
-    do i = 1, n_user_tallies
+    do i = 1, n_tallies
       call tallies(i) % p % statistics
     end do
 
@@ -141,7 +141,7 @@ module tally
 
     integer :: i
 
-    do i = 1, n_user_tallies
+    do i = 1, n_tallies
       call tallies(i) % p % reset()
     end do
 
@@ -199,7 +199,7 @@ module tally
     open(FILE=filename, UNIT=UNIT_TALLY, STATUS='replace', ACTION='write')
 
     ! Loop around tallies and write
-    do i = 1, n_user_tallies
+    do i = 1, n_tallies
       call tallies(i) % p % write_output(nuclides, xs_listings)
     end do
 
