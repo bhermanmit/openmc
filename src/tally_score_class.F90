@@ -13,6 +13,7 @@ module tally_score_class
     real(8), pointer :: flux
     real(8), pointer :: response
     contains
+      procedure, public :: get_type => get_score_type
       procedure, public :: write => write_score
       procedure(score_match_interface), deferred, nopass :: score_match
       procedure(get_weight_interface), deferred, nopass :: get_weight
@@ -74,6 +75,19 @@ module tally_score_class
 ! General abstract tally score methods
 !*******************************************************************************
 !*******************************************************************************
+
+!===============================================================================
+! GET_SCORE_TYPE
+!===============================================================================
+
+  function get_score_type(self) result(type)
+
+    class(TallyScoreClass) :: self
+    integer :: type
+
+    type = self % type
+
+  end function get_score_type
 
 !===============================================================================
 ! TALLY_SCORE_DESTROY deallocates all members of TallyScoreClass

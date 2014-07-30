@@ -20,6 +20,8 @@ module tally_filter_class
     real(8), allocatable :: real_bins(:)
     contains
       procedure, public :: get_n_bins
+      procedure, public :: get_int_bin
+      procedure, public :: get_real_bin
       procedure, public :: get_type => get_tally_filter_type
       procedure, public :: destroy => tally_filter_destroy
       procedure, public :: write => write_filter 
@@ -77,6 +79,7 @@ module tally_filter_class
     contains
       procedure, public :: get_filter_index => mesh_filter_get_index
       procedure, public :: get_crossings => mesh_filter_get_crossings
+      procedure, public :: get_mesh_pointer => mesh_filter_get_pointer
       procedure, public :: get_next_distance => mesh_filter_get_next_distance
       procedure, public :: set_bins => mesh_filter_set_bins
   end type MeshFilterClass
@@ -135,6 +138,20 @@ module tally_filter_class
   end subroutine set_int_bins
 
 !===============================================================================
+! GET_INT_BIN
+!===============================================================================
+
+  function get_int_bin(self, bin) result(int_bin)
+
+    class(TallyFilterClass) :: self
+    integer :: bin
+    integer :: int_bin
+
+    int_bin = self % int_bins(bin)
+
+  end function get_int_bin
+
+!===============================================================================
 ! SET_REAL_BINS allocates and sets filter bins that are reals
 !===============================================================================
 
@@ -149,6 +166,20 @@ module tally_filter_class
     self % real_bins = bins
 
   end subroutine set_real_bins
+
+!===============================================================================
+! GET_REAL_BIN
+!===============================================================================
+
+  function get_real_bin(self, bin) result(real_bin)
+
+    class(TallyFilterClass) :: self
+    integer :: bin
+    real(8) :: real_bin
+
+    real_bin = self % real_bins(bin)
+
+  end function get_real_bin
 
 !===============================================================================
 ! TALLY_FILTER_DESTROY deallocates all members of TallyFilterClass
@@ -490,5 +521,18 @@ module tally_filter_class
     self % mesh => mesh
 
   end subroutine mesh_filter_set_bins
+
+!===============================================================================
+! MESH_FILTER_GET_POINTER
+!===============================================================================
+
+  function mesh_filter_get_pointer(self) result(m)
+
+    class(MeshFilterClass) :: self
+    type(StructuredMesh), pointer :: m
+
+    m => self % mesh
+
+  end function mesh_filter_get_pointer
 
 end module tally_filter_class

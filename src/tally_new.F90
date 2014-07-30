@@ -411,6 +411,20 @@ module tally_new
     character(MAX_FILE_LEN) :: filename                    ! name of output file
 
     ! Create filename for tally output
+!   filename = trim(path_output) // "tallies_new.out"
+
+    ! Open tally file for writing
+!   open(FILE=filename, UNIT=UNIT_TALLY, STATUS='replace', ACTION='write')
+
+    ! Loop around tallies and write
+!   do i = 1, n_user_tallies
+!     call tallies_new(i) % p % write(UNIT_TALLY)
+!   end do
+
+    ! Close tally file
+!   close(UNIT=UNIT_TALLY)
+
+    ! Create filename for tally output
     filename = trim(path_output) // "tallies_new.out"
 
     ! Open tally file for writing
@@ -418,7 +432,7 @@ module tally_new
 
     ! Loop around tallies and write
     do i = 1, n_user_tallies
-      call tallies_new(i) % p % write(UNIT_TALLY)
+      call tallies_new(i) % p % write_output(nuclides, xs_listings)
     end do
 
     ! Close tally file

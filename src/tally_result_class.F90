@@ -12,7 +12,8 @@ module tally_result_class
     contains
       procedure, public :: accumulate => accumulate_result
       procedure, public :: add => add_result
-      procedure, public :: multiply_sum_sq
+      procedure, public :: get_sum
+      procedure, public :: get_sum_sq
       procedure, public :: statistics => statistics_result
       procedure, public :: reset => reset_result
       procedure, public :: write => write_result
@@ -46,22 +47,35 @@ module tally_result_class
   end subroutine accumulate_result
 
 !===============================================================================
-! MULTIPLY_SUM_SQ
+! GET_SUM
 !===============================================================================
 
-  elemental subroutine multiply_sum_sq(self, val)
+  function get_sum(self) result(sum_)
 
-    class(TallyResultClass), intent(inout) :: self
-    real(8), intent(in) :: val
+    class(TallyResultClass) :: self
+    real(8) :: sum_
 
-    self % sum_sq = self % sum_sq * val
+    sum_ = self % sum
 
-  end subroutine multiply_sum_sq
+  end function get_sum
+
+!===============================================================================
+! GET_SUM_SQ
+!===============================================================================
+
+  function get_sum_sq(self) result(sum_sq)
+
+    class(TallyResultClass) :: self
+    real(8) :: sum_sq
+
+    sum_sq = self % sum_sq
+
+  end function get_sum_sq
 
 !===============================================================================
 ! STATISTICS_RESULT determines the sample mean and the standard deviation of the
 ! mean for a TallyResult.
-!===================`============================================================
+!===================`===========================================================
 
   elemental subroutine statistics_result(self, n)
 

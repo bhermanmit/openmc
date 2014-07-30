@@ -1,12 +1,16 @@
 module tally_class
 
-  use ace_header,         only: Nuclide, Reaction
+  use ace_header,         only: Nuclide, Reaction, XSListing
+  use endf,               only: reaction_name
   use constants
+  use mesh_header,        only: StructuredMesh
+  use mesh,               only: bin_to_mesh_indices
   use particle_header
   use physics,            only: sample_nuclide, sample_fission, &
                                 sample_fission_energy
   use random_lcg,         only: prn_set_stream, STREAM_TRACKING, &
                                 STREAM_TALLIES
+  use string,             only: to_str, upper_case
   use tally_filter_class 
   use tally_result_class
   use tally_score_class 
@@ -25,11 +29,14 @@ module tally_class
     integer :: n_filters = ZERO ! Number of filters
     integer :: n_realizations = ZERO ! Number of tally realizations
     integer :: n_scores = ZERO ! Number of scores
+    integer :: total_nuclide_bins = ONE ! Total number of nuclide bins
     integer :: total_score_bins = ZERO ! Total number of score bins
     integer :: total_filter_bins = ONE ! Total number of filter bins
     integer :: find_filter(N_FILTER_TYPES)
+    integer :: nuclide_bins(1) = -1
     integer, allocatable :: stride(:)
     integer, allocatable :: matching_bins(:)
+    integer, allocatable :: moment_order(:)
     logical :: has_eout_filter = .false.
     logical :: has_mesh_filter = .false.
     type(MeshFilterClass), pointer :: mesh_filter => null()
@@ -46,6 +53,7 @@ module tally_class
       procedure, public :: destroy => tally_destroy
       procedure, public :: finish_setup
       procedure :: get_filter_index
+      procedure :: get_label
       procedure :: set_filter_index
       procedure :: setup_filter_indices
       procedure, public :: reset => tally_reset
@@ -53,6 +61,7 @@ module tally_class
       procedure, public :: set_id
       procedure, public :: statistics => tally_statistics
       procedure, public :: write => write_tally
+      procedure, public :: write_output => write_tally_output
       procedure(score_interface), deferred :: score
   end type TallyClass
 
@@ -213,7 +222,9 @@ module tally_class
 
     self % n_scores = n_scores
     allocate(self % scores(n_scores))
-    
+    allocate(self % moment_order(n_scores))
+    self % moment_order = 0
+ 
   end subroutine allocate_scores
 
 !===============================================================================
@@ -421,6 +432,266 @@ module tally_class
     end do
 
   end subroutine write_tally
+
+!===============================================================================
+! WRITE_TALLY_OUTPUT
+!===============================================================================
+
+  subroutine write_tally_output(self, nuclides, xs_listings)
+
+    class(TallyClass), intent(inout) :: self
+    type(Nuclide), intent(in) :: nuclides(:)
+    type(XSListing), intent(in) :: xs_listings(:)
+
+    integer :: j            ! level in tally hierarchy
+    integer :: k            ! loop index for scoring bins
+    integer :: n            ! loop index for nuclides
+    integer :: l            ! loop index for user scores
+    integer :: type         ! type of tally filter
+    integer :: indent       ! number of spaces to preceed output
+    integer :: filter_index ! index in results array for filters
+    integer :: score_index  ! scoring bin index
+    integer :: i_nuclide    ! index in nuclides array
+    integer :: i_listing    ! index in xs_listings array
+    integer :: n_order      ! loop index for moment orders
+    integer :: nm_order     ! loop index for Ynm moment orders
+    character(15)           :: filter_name(N_FILTER_TYPES) ! names of tally filters
+    character(36)           :: score_names(N_SCORE_TYPES)  ! names of scoring function
+    character(36)           :: score_name                  ! names of scoring function
+
+    ! Initialize names for tally filter types
+    filter_name(FILTER_UNIVERSE)  = "Universe"
+    filter_name(FILTER_MATERIAL)  = "Material"
+    filter_name(FILTER_CELL)      = "Cell"
+    filter_name(FILTER_CELLBORN)  = "Birth Cell"
+    filter_name(FILTER_SURFACE)   = "Surface"
+    filter_name(FILTER_MESH)      = "Mesh"
+    filter_name(FILTER_ENERGYIN)  = "Incoming Energy"
+    filter_name(FILTER_ENERGYOUT) = "Outgoing Energy"
+
+    ! Initialize names for scores
+    score_names(abs(SCORE_FLUX))          = "Flux"
+    score_names(abs(SCORE_TOTAL))         = "Total Reaction Rate"
+    score_names(abs(SCORE_SCATTER))       = "Scattering Rate"
+    score_names(abs(SCORE_NU_SCATTER))    = "Scattering Production Rate"
+    score_names(abs(SCORE_TRANSPORT))     = "Transport Rate"
+    score_names(abs(SCORE_N_1N))          = "(n,1n) Rate"
+    score_names(abs(SCORE_ABSORPTION))    = "Absorption Rate"
+    score_names(abs(SCORE_FISSION))       = "Fission Rate"
+    score_names(abs(SCORE_NU_FISSION))    = "Nu-Fission Rate"
+    score_names(abs(SCORE_KAPPA_FISSION)) = "Kappa-Fission Rate"
+    score_names(abs(SCORE_EVENTS))        = "Events"
+    score_names(abs(SCORE_FLUX_YN))       = "Flux Moment"
+    score_names(abs(SCORE_TOTAL_YN))      = "Total Reaction Rate Moment"
+    score_names(abs(SCORE_SCATTER_N))     = "Scattering Rate Moment"
+    score_names(abs(SCORE_SCATTER_PN))    = "Scattering Rate Moment"
+    score_names(abs(SCORE_SCATTER_YN))    = "Scattering Rate Moment"
+    score_names(abs(SCORE_NU_SCATTER_N))  = "Scattering Prod. Rate Moment"
+    score_names(abs(SCORE_NU_SCATTER_PN)) = "Scattering Prod. Rate Moment"
+    score_names(abs(SCORE_NU_SCATTER_YN)) = "Scattering Prod. Rate Moment"
+
+    ! Write header block (put labels back in later)
+!   if (t % label == "") then
+      call header("TALLY " // trim(to_str(self % id)), unit=UNIT_TALLY, &
+           level=3)
+!   else
+!     call header("TALLY " // trim(to_str(t % id)) // ": " &
+!          // trim(t % label), unit=UNIT_TALLY, level=3)
+!   endif
+
+    ! WARNING: Admittedly, the logic for moving for printing results is
+    ! extremely confusing and took quite a bit of time to get correct. The
+    ! logic is structured this way since it is not practical to have a do
+    ! loop for each filter variable (given that only a few filters are likely
+    ! to be used for a given tally.
+
+    ! Initialize bins, filter level, and indentation
+    self % matching_bins(1:self % n_filters) = 0
+    j = 1
+    indent = 0
+
+    print_bin: do
+      find_bin: do
+        ! Check for no filters
+        if (self % n_filters == 0) exit find_bin
+
+        ! Increment bin combination
+        self % matching_bins(j) = self % matching_bins(j) + 1
+
+        ! =================================================================
+        ! REACHED END OF BINS FOR THIS FILTER, MOVE TO NEXT FILTER
+
+        if (self % matching_bins(j) > self % filters(j) % p % get_n_bins()) then
+          ! If this is the first filter, then exit
+          if (j == 1) exit print_bin
+
+          self % matching_bins(j) = 0
+          j = j - 1
+          indent = indent - 2
+
+          ! =================================================================
+          ! VALID BIN -- WRITE FILTER INFORMATION OR EXIT TO WRITE RESULTS
+
+        else
+          ! Check if this is last filter
+          if (j == self % n_filters) exit find_bin
+
+          ! Print current filter information
+          type = self % filters(j) % p % get_type()
+          write(UNIT=UNIT_TALLY, FMT='(1X,2A,1X,A)') repeat(" ", indent), &
+               trim(filter_name(type)), trim(self % get_label(j))
+          indent = indent + 2
+          j = j + 1
+        end if
+
+      end do find_bin
+
+      ! Print filter information
+      if (self % n_filters > 0) then
+        type = self % filters(j) % p % get_type()
+        write(UNIT=UNIT_TALLY, FMT='(1X,2A,1X,A)') repeat(" ", indent), &
+             trim(filter_name(type)), trim(self % get_label(j))
+      end if
+
+      ! Determine scoring index for this bin combination -- note that unlike
+      ! in the score_tally subroutine, we have to use max(bins,1) since all
+      ! bins below the lowest filter level will be zeros
+
+      if (self % n_filters > 0) then
+        filter_index = sum((max(self % matching_bins(1:self%n_filters),1) - 1) * self % stride) + 1
+      else
+        filter_index = 1
+      end if
+
+      ! Write results for this filter bin combination
+      score_index = 0
+      if (self % n_filters > 0) indent = indent + 2
+      do n = 1, self % total_nuclide_bins
+        ! Write label for nuclide
+        i_nuclide = self % nuclide_bins(n)
+        if (i_nuclide == -1) then
+          write(UNIT=UNIT_TALLY, FMT='(1X,2A,1X,A)') repeat(" ", indent), &
+               "Total Material"
+        else
+          i_listing = nuclides(i_nuclide) % listing
+          write(UNIT=UNIT_TALLY, FMT='(1X,2A,1X,A)') repeat(" ", indent), &
+               trim(xs_listings(i_listing) % alias)
+        end if
+
+        indent = indent + 2
+        k = 0
+        do l = 1, self % total_score_bins
+          k = k + 1
+          score_index = score_index + 1
+          select case(self % scores(k) % p % get_type())
+          case (SCORE_SCATTER_N, SCORE_NU_SCATTER_N)
+            score_name = 'P' // trim(to_str(self % moment_order(k))) // " " // &
+              score_names(abs(self % scores(k) % p % get_type()))
+            write(UNIT=UNIT_TALLY, FMT='(1X,2A,1X,A,"+/- ",A)') &
+              repeat(" ", indent), score_name, &
+              to_str(self % results(score_index,filter_index) % get_sum()), &
+              trim(to_str(self % results(score_index,filter_index) % get_sum_sq()))
+          case (SCORE_SCATTER_PN, SCORE_NU_SCATTER_PN)
+            score_index = score_index - 1
+            do n_order = 0, self % moment_order(k)
+              score_index = score_index + 1
+              score_name = 'P' // trim(to_str(n_order)) //  " " //&
+                score_names(abs(self % scores(k) % p % get_type()))
+              write(UNIT=UNIT_TALLY, FMT='(1X,2A,1X,A,"+/- ",A)') &
+                repeat(" ", indent), score_name, &
+                to_str(self % results(score_index,filter_index) % get_sum()), &
+                trim(to_str(self % results(score_index,filter_index) % get_sum_sq()))
+            end do
+            k = k + self % moment_order(k)
+          case (SCORE_SCATTER_YN, SCORE_NU_SCATTER_YN, SCORE_FLUX_YN, &
+                SCORE_TOTAL_YN)
+            score_index = score_index - 1
+            do n_order = 0, self % moment_order(k)
+              do nm_order = -n_order, n_order
+                score_index = score_index + 1
+                score_name = 'Y' // trim(to_str(n_order)) // ',' // &
+                  trim(to_str(nm_order)) // " " // score_names(abs(self % scores(k) % p % get_type()))
+                write(UNIT=UNIT_TALLY, FMT='(1X,2A,1X,A,"+/- ",A)') &
+                  repeat(" ", indent), score_name, &
+                  to_str(self % results(score_index,filter_index) % get_sum()), &
+                  trim(to_str(self % results(score_index,filter_index) % get_sum_sq()))
+              end do
+            end do
+            k = k + (self % moment_order(k) + 1)**2 - 1
+          case default
+            if (self % scores(k) % p % get_type() > 0) then
+              score_name = reaction_name(self % scores(k) % p % get_type())
+            else
+              score_name = score_names(abs(self % scores(k) % p % get_type()))
+            end if
+            write(UNIT=UNIT_TALLY, FMT='(1X,2A,1X,A,"+/- ",A)') &
+              repeat(" ", indent), score_name, &
+              to_str(self % results(score_index,filter_index) % get_sum()), &
+              trim(to_str(self % results(score_index,filter_index) % get_sum_sq()))
+          end select
+        end do
+        indent = indent - 2
+
+      end do
+      indent = indent - 2
+
+      if (self % n_filters == 0) exit print_bin
+
+    end do print_bin
+
+  end subroutine write_tally_output
+
+!===============================================================================
+! GET_LABEL returns a label for a cell/surface/etc given a tally, filter type,
+! and corresponding bin
+!===============================================================================
+
+  function get_label(self, i_filter) result(label)
+
+    class(TallyClass) :: self ! tally object
+    integer :: i_filter ! index in filters array
+    character(30) :: label ! user-specified identifier
+
+    integer :: i      ! index in cells/surfaces/etc array
+    integer :: bin
+    integer, allocatable :: ijk(:) ! indices in mesh
+    real(8)              :: E0     ! lower bound for energy bin
+    real(8)              :: E1     ! upper bound for energy bin
+    type(StructuredMesh), pointer :: m => null()
+
+    bin = self % matching_bins(i_filter)
+
+    select case(self % filters(i_filter) % p % get_type())
+    case (FILTER_UNIVERSE)
+      i = self % filters(i_filter) % p % get_int_bin(bin)
+      label = "" 
+    case (FILTER_MATERIAL)
+      i = self % filters(i_filter) % p % get_int_bin(bin)
+      label = "" 
+    case (FILTER_CELL, FILTER_CELLBORN)
+      i = self % filters(i_filter) % p % get_int_bin(bin)
+      label = "" 
+    case (FILTER_SURFACE)
+      i = self % filters(i_filter) % p % get_int_bin(bin)
+      label = "" 
+    case (FILTER_MESH)
+      m => self % mesh_filter % get_mesh_pointer()
+      allocate(ijk(m % n_dimension))
+      call bin_to_mesh_indices(m, bin, ijk)
+      if (m % n_dimension == 2) then
+        label = "Index (" // trim(to_str(ijk(1))) // ", " // &
+             trim(to_str(ijk(2))) // ")"
+      elseif (m % n_dimension == 3) then
+        label = "Index (" // trim(to_str(ijk(1))) // ", " // &
+             trim(to_str(ijk(2))) // ", " // trim(to_str(ijk(3))) // ")"
+      end if
+    case (FILTER_ENERGYIN, FILTER_ENERGYOUT)
+      E0 = self % filters(i_filter) % p % get_real_bin(bin)
+      E1 = self % filters(i_filter) % p % get_real_bin(bin + 1)
+      label = "[" // trim(to_str(E0)) // ", " // trim(to_str(E1)) // ")"
+    end select
+
+  end function get_label
 
 !*******************************************************************************
 !*******************************************************************************
@@ -726,46 +997,6 @@ module tally_class
   end function collision_get_flux
 
 !===============================================================================
-! SAMPLE_FAKE_FISSION samples a fake fission reaction
-!===============================================================================
-
-  function sample_fake_fission(p) result(p_fiss)
-
-    type(Particle) :: p
-    type(Particle), pointer :: p_fiss
-
-    integer :: i_nuclide_rxn
-    integer :: i_reaction
-    type(Nuclide),  pointer :: nuc
-    type(Reaction), pointer :: rxn
-
-    ! Switch over random number stream to tallies
-    call prn_set_stream(STREAM_TALLIES)
-
-    ! Allocate fake fission particle and initialize
-    allocate(p_fiss)
-    call p_fiss % initialize()
-
-    ! Copy particle attributes over
-    p_fiss = p
-
-    ! Sample nuclide for fission reaction
-    i_nuclide_rxn = sample_nuclide(p_fiss, 'fission')
-
-    ! Sample a fake fission
-    call sample_fission(p_fiss, i_nuclide_rxn, i_reaction)
-
-    ! Set up pointers and get fission energy
-    nuc => p % nuclides(i_nuclide_rxn)
-    rxn => nuc % reactions(i_reaction)
-    p_fiss % E = sample_fission_energy(nuc, rxn, p_fiss % last_E)
-
-    ! Switch over random number stream to tallies
-    call prn_set_stream(STREAM_TRACKING)
-
-  end function sample_fake_fission
-
-!===============================================================================
 ! COLLISION_TALLY_SCORE performs a score to a collision tally
 !===============================================================================
 
@@ -827,5 +1058,108 @@ module tally_class
     end if
 
   end subroutine collision_tally_score
+
+!*******************************************************************************
+!*******************************************************************************
+! Private routines
+!*******************************************************************************
+!*******************************************************************************
+
+!===============================================================================
+! SAMPLE_FAKE_FISSION samples a fake fission reaction
+!===============================================================================
+
+  function sample_fake_fission(p) result(p_fiss)
+
+    type(Particle) :: p
+    type(Particle), pointer :: p_fiss
+
+    integer :: i_nuclide_rxn
+    integer :: i_reaction
+    type(Nuclide),  pointer :: nuc
+    type(Reaction), pointer :: rxn
+
+    ! Switch over random number stream to tallies
+    call prn_set_stream(STREAM_TALLIES)
+
+    ! Allocate fake fission particle and initialize
+    allocate(p_fiss)
+    call p_fiss % initialize()
+
+    ! Copy particle attributes over
+    p_fiss = p
+
+    ! Sample nuclide for fission reaction
+    i_nuclide_rxn = sample_nuclide(p_fiss, 'fission')
+
+    ! Sample a fake fission
+    call sample_fission(p_fiss, i_nuclide_rxn, i_reaction)
+
+    ! Set up pointers and get fission energy
+    nuc => p % nuclides(i_nuclide_rxn)
+    rxn => nuc % reactions(i_reaction)
+    p_fiss % E = sample_fission_energy(nuc, rxn, p_fiss % last_E)
+
+    ! Switch over random number stream to tallies
+    call prn_set_stream(STREAM_TRACKING)
+
+  end function sample_fake_fission
+
+!===============================================================================
+! HEADER displays a header block according to a specified level. If no level is
+! specified, it is assumed to be a minor header block (H3).
+!===============================================================================
+
+  subroutine header(msg, unit, level)
+
+    use, intrinsic :: ISO_FORTRAN_ENV 
+
+    character(*), intent(in) :: msg ! header message
+    integer, optional :: unit       ! unit to write to
+    integer, optional :: level      ! specified header level
+
+    integer :: n            ! number of = signs on left
+    integer :: m            ! number of = signs on right
+    integer :: unit_        ! unit to write to
+    integer :: header_level ! actual header level
+    character(MAX_LINE_LEN) :: line
+
+    ! set default level
+    if (present(level)) then
+      header_level = level
+    else
+      header_level = 3
+    end if
+
+    ! set default unit
+    if (present(unit)) then
+      unit_ = unit
+    else
+      unit_ = OUTPUT_UNIT
+    end if
+
+    ! determine how many times to repeat '=' character
+    n = (63 - len_trim(msg))/2
+    m = n
+    if (mod(len_trim(msg),2) == 0) m = m + 1
+
+    ! convert line to upper case
+    line = msg
+    call upper_case(line)
+
+    ! print header based on level
+    select case (header_level)
+    case (1)
+      write(UNIT=unit_, FMT='(/3(1X,A/))') repeat('=', 75), &
+           repeat('=', n) // '>     ' // trim(line) // '     <' // &
+           repeat('=', m), repeat('=', 75)
+    case (2)
+      write(UNIT=unit_, FMT='(/2(1X,A/))') trim(line), repeat('-', 75)
+    case (3)
+      write(UNIT=unit_, FMT='(/1X,A/)') repeat('=', n) // '>     ' // &
+           trim(line) // '     <' // repeat('=', m)
+    end select
+
+  end subroutine header
 
 end module tally_class
