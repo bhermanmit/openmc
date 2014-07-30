@@ -22,6 +22,7 @@ module tally_filter_class
       procedure, public :: get_n_bins
       procedure, public :: get_int_bin
       procedure, public :: get_real_bin
+      procedure, public :: set_int_bin
       procedure, public :: get_type => get_tally_filter_type
       procedure, public :: destroy => tally_filter_destroy
       procedure, public :: write => write_filter 
@@ -122,20 +123,18 @@ module tally_filter_class
   end function get_n_bins
 
 !===============================================================================
-! SET_INT_BINS allocates and sets filter bins that are integers
+! SET_INT_BIN
 !===============================================================================
 
-  subroutine set_int_bins(self, n_bins, bins)
+  subroutine set_int_bin(self, idx, val)
 
     class(TallyFilterClass), intent(inout) :: self
-    integer, intent(in) :: n_bins
-    integer, intent(in) :: bins(:)
+    integer, intent(in) :: idx
+    integer, intent(in) :: val
 
-    self % n_bins = n_bins
-    allocate(self % int_bins(n_bins))
-    self % int_bins = bins
+    self % int_bins(idx) = val
 
-  end subroutine set_int_bins
+  end subroutine set_int_bin
 
 !===============================================================================
 ! GET_INT_BIN

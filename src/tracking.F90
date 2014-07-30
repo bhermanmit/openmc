@@ -10,11 +10,8 @@ module tracking
   use physics,         only: collision
   use random_lcg,      only: prn
   use string,          only: to_str
-  use tally,           only: score_analog_tally, score_tracklength_tally, &
-                             score_surface_current
-  use tally_new,       only: score_analog_tallies_new, &
-                             score_tracklength_tallies_new, &
-                             score_collision_tallies_new
+  use tally,           only: score_analog_tallies, score_tracklength_tallies, &
+                             score_collision_tallies
   use track_output,    only: initialize_particle_track, write_particle_track, &
                              finalize_particle_track
 
@@ -112,17 +109,14 @@ contains
       end do
 
       ! Score track-length tallies
-      if (active_tracklength_tallies % size() > 0) &
-           call score_tracklength_tally(p, distance)
       p % dist => distance
-      if (active_tracklength_tallies_new % size() > 0) &
-           call score_tracklength_tallies_new(p)
+      if (active_tracklength_tallies % size() > 0) &
+           call score_tracklength_tallies(p)
 
       ! Score track-length estimate of k-eff
 !$omp critical
-      global_tallies(K_TRACKLENGTH) % value = &
-           global_tallies(K_TRACKLENGTH) % value + p % wgt * distance * &
-           material_xs % nu_fission
+      call global_tallies(K_TRACKLENGTH) % add(p % wgt * distance * &
+           material_xs % nu_fission)
 !$omp end critical
 
       if (d_collision > d_boundary) then
@@ -148,23 +142,22 @@ contains
 
         ! Score collision estimate of keff
 !$omp critical
-        global_tallies(K_COLLISION) % value = &
-             global_tallies(K_COLLISION) % value + p % wgt * &
-             material_xs % nu_fission / material_xs % total
+        call global_tallies(K_COLLISION) % add(p % wgt * &
+             material_xs % nu_fission / material_xs % total)
 !$omp end critical
 
         ! score surface current tallies -- this has to be done before the collision
         ! since the direction of the particle will change and we need to use the
         ! pre-collision direction to figure out what mesh surfaces were crossed
 
-        if (active_current_tallies % size() > 0) call score_surface_current(p)
+!       if (active_current_tallies % size() > 0) call score_surface_current(p)
 
         ! Clear surface component
         p % surface = NONE
 
         ! Score collision tallies 
-        if (active_collision_tallies_new % size() > 0) &
-           call score_collision_tallies_new(p)
+        if (active_collision_tallies % size() > 0) &
+           call score_collision_tallies(p)
 
         ! Perform a collision
         call collision(p)
@@ -173,8 +166,7 @@ contains
         ! has occurred rather than before because we need information on the
         ! outgoing energy for any tallies with an outgoing energy filter
 
-        if (active_analog_tallies % size() > 0) call score_analog_tally(p)
-        if (active_analog_tallies % size() > 0) call score_analog_tallies_new(p)
+        if (active_analog_tallies % size() > 0) call score_analog_tallies(p)
 
         ! Reset banked weight during collision
         p % nu = 0

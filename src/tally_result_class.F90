@@ -14,6 +14,7 @@ module tally_result_class
       procedure, public :: add => add_result
       procedure, public :: get_sum
       procedure, public :: get_sum_sq
+      procedure, public :: get_value
       procedure, public :: statistics => statistics_result
       procedure, public :: reset => reset_result
       procedure, public :: write => write_result
@@ -73,6 +74,19 @@ module tally_result_class
   end function get_sum_sq
 
 !===============================================================================
+! GET_VALUE
+!===============================================================================
+
+  function get_value(self) result(val)
+
+    class(TallyResultClass) :: self
+    real(8) :: val
+
+    val = self % value
+
+  end function get_value
+
+!===============================================================================
 ! STATISTICS_RESULT determines the sample mean and the standard deviation of the
 ! mean for a TallyResult.
 !===================`===========================================================
@@ -100,7 +114,7 @@ module tally_result_class
   elemental subroutine reset_result(self)
 
     class(TallyResultClass), intent(inout) :: self
-  
+
     self % value    = ZERO
     self % sum      = ZERO
     self % sum_sq   = ZERO

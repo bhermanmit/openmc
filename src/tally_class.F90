@@ -52,13 +52,16 @@ module tally_class
       procedure, public :: allocate_scores
       procedure, public :: destroy => tally_destroy
       procedure, public :: finish_setup
+      procedure :: get_filter
       procedure :: get_filter_index
       procedure :: get_label
+      procedure :: get_n_filters
       procedure :: set_filter_index
       procedure :: setup_filter_indices
       procedure, public :: reset => tally_reset
       procedure :: setup_stride
       procedure, public :: set_id
+      procedure, public :: get_id
       procedure, public :: statistics => tally_statistics
       procedure, public :: write => write_tally
       procedure, public :: write_output => write_tally_output
@@ -332,6 +335,33 @@ module tally_class
   end function get_filter_index
 
 !===============================================================================
+! GET_N_FILTERS
+!===============================================================================
+
+  function get_n_filters(self) result(n_filters)
+
+    class(TallyClass) :: self
+    integer :: n_filters
+
+    n_filters = self % n_filters
+
+  end function get_n_filters
+
+!===============================================================================
+! GET_FILTERS
+!===============================================================================
+
+  function get_filter(self, i) result(filter)
+
+    class(TallyClass) :: self
+    integer :: i
+    class(TallyFilterClass), pointer :: filter
+
+    filter => self % filters(i) % p
+
+  end function get_filter
+
+!===============================================================================
 ! SETUP_STRIDE
 !===============================================================================
 
@@ -370,6 +400,19 @@ module tally_class
     self % id = id
 
   end subroutine set_id
+
+!===============================================================================
+! GET_ID
+!===============================================================================
+
+  function get_id(self) result(id)
+
+    class(TallyClass) :: self
+    integer :: id
+
+    id = self % id
+
+  end function get_id
 
 !===============================================================================
 ! TALLY_RESET

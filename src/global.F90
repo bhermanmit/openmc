@@ -1,21 +1,20 @@
 module global
 
-  use ace_header,       only: Nuclide, SAlphaBeta, xsListing, NuclideMicroXS, &
-                              MaterialMacroXS
-  use bank_header,      only: Bank
+  use ace_header,         only: Nuclide, SAlphaBeta, xsListing, &
+                                NuclideMicroXS, MaterialMacroXS
+  use bank_header,        only: Bank
   use cmfd_header
   use constants
-  use dict_header,      only: DictCharInt, DictIntInt
-  use geometry_header,  only: Cell, Universe, Lattice, Surface
-  use material_header,  only: Material
-  use mesh_header,      only: StructuredMesh
-  use plot_header,      only: ObjectPlot
-  use set_header,       only: SetInt
-  use source_header,    only: ExtSource
-  use tally_header,     only: TallyObject, TallyMap, TallyResult
-  use timer_header,     only: Timer
-
-  use tally_class
+  use dict_header,        only: DictCharInt, DictIntInt
+  use geometry_header,    only: Cell, Universe, Lattice, Surface
+  use material_header,    only: Material
+  use mesh_header,        only: StructuredMesh
+  use plot_header,        only: ObjectPlot
+  use set_header,         only: SetInt
+  use source_header,      only: ExtSource
+  use tally_class,        only: Tally_p
+  use tally_result_class, only: TallyResultClass 
+  use timer_header,       only: Timer
 
 #ifdef HDF5
   use hdf5_interface,  only: HID_T
@@ -97,16 +96,11 @@ module global
   ! TALLY-RELATED VARIABLES
 
   type(StructuredMesh), allocatable, target :: meshes(:)
-  type(TallyObject),    allocatable, target :: tallies(:)
-  type(Tally_p), allocatable, target :: tallies_new(:)
-  integer, allocatable :: matching_bins(:)
-
-  ! Pointers for new active tallies
-! type(Tally_p), allocatable, pointer :: active_analog_tallies(:)
+  type(Tally_p), allocatable, target :: tallies(:)
 
   ! Pointers for different tallies
-  type(TallyObject), pointer :: user_tallies(:) => null()
-  type(TallyObject), pointer :: cmfd_tallies(:) => null()
+  type(Tally_p), pointer :: user_tallies(:) => null()
+  type(Tally_p), pointer :: cmfd_tallies(:) => null()
 
   ! Starting index (minus 1) in tallies for each tally group
   integer :: i_user_tallies = -1
@@ -115,30 +109,22 @@ module global
   ! Active tally lists
   type(SetInt) :: active_analog_tallies
   type(SetInt) :: active_tracklength_tallies
+  type(SetInt) :: active_collision_tallies
   type(SetInt) :: active_current_tallies
   type(SetInt) :: active_tallies
 !$omp threadprivate(active_analog_tallies, active_tracklength_tallies, &
-!$omp&              active_current_tallies, active_tallies)
-
-  ! Active tally lists
-  type(SetInt) :: active_analog_tallies_new
-  type(SetInt) :: active_tracklength_tallies_new
-  type(SetInt) :: active_collision_tallies_new
-  type(SetInt) :: active_current_tallies_new
-  type(SetInt) :: active_tallies_new
-!$omp threadprivate(active_analog_tallies_new, active_tracklength_tallies_new, &
-!$omp&              active_collision_tallies_new, active_current_tallies_new, &
-!$omp&              active_tallies_new)
+!$omp&              active_collision_tallies, active_current_tallies, &
+!$omp&              active_tallies)
 
   ! Global tallies
   !   1) collision estimate of k-eff
   !   2) track-length estimate of k-eff
   !   3) leakage fraction
 
-  type(TallyResult), target :: global_tallies(N_GLOBAL_TALLIES)
+  type(TallyResultClass), target :: global_tallies(N_GLOBAL_TALLIES)
 
   ! Tally map structure
-  type(TallyMap), allocatable :: tally_maps(:)
+! type(TallyMap), allocatable :: tally_maps(:)
 
   integer :: n_meshes       = 0 ! # of structured meshes
   integer :: n_user_meshes  = 0 ! # of structured user meshes
@@ -442,16 +428,15 @@ contains
 
     ! Deallocate tally-related arrays
     if (allocated(meshes)) deallocate(meshes)
-    if (allocated(tallies)) then
-    ! First call the clear routines
-      do i = 1, size(tallies)
-        call tallies(i) % clear()
-      end do
-      ! Now deallocate the tally array
-      deallocate(tallies)
-    end if
-    if (allocated(matching_bins)) deallocate(matching_bins)
-    if (allocated(tally_maps)) deallocate(tally_maps)
+!   if (allocated(tallies)) then
+!   ! First call the clear routines
+!     do i = 1, size(tallies)
+!       call tallies(i) % clear()
+!     end do
+!     ! Now deallocate the tally array
+!     deallocate(tallies)
+!   end if
+!   if (allocated(tally_maps)) deallocate(tally_maps)
 
     ! Deallocate energy grid
     if (allocated(e_grid)) deallocate(e_grid)

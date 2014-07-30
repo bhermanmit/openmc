@@ -9,7 +9,7 @@ module fixed_source
   use source,          only: sample_external_source, copy_source_attributes
   use state_point,     only: write_state_point
   use string,          only: to_str
-  use tally,           only: synchronize_tallies, setup_active_usertallies
+  use tally,           only: setup_active_usertallies
   use tracking,        only: transport
 
   character(2*MAX_LINE_LEN) :: message
@@ -115,7 +115,7 @@ contains
 
     ! Collect and accumulate tallies
     call time_tallies % start()
-    call synchronize_tallies()
+!   call synchronize_tallies()
     call time_tallies % stop()
 
     ! Write out state point if it's been specified for this batch

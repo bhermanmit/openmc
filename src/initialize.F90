@@ -1,25 +1,27 @@
 module initialize
 
-  use ace,              only: read_xs
-  use bank_header,      only: Bank
+  use ace,                only: read_xs
+  use bank_header,        only: Bank
   use constants
-  use dict_header,      only: DictIntInt, ElemKeyValueII
-  use energy_grid,      only: unionized_grid
-  use error,            only: fatal_error, warning, write_message
-  use geometry,         only: neighbor_lists
-  use geometry_header,  only: Cell, Universe, Lattice, BASE_UNIVERSE
+  use dict_header,        only: DictIntInt, ElemKeyValueII
+  use energy_grid,        only: unionized_grid
+  use error,              only: fatal_error, warning, write_message
+  use geometry,           only: neighbor_lists
+  use geometry_header,    only: Cell, Universe, Lattice, BASE_UNIVERSE
   use global
-  use input_xml,        only: read_input_xml, read_cross_sections_xml,         &
-                              cells_in_univ_dict, read_plots_xml
-  use output,           only: title, header, write_summary, print_version,     &
-                              print_usage, write_xs_summary, print_plot
+  use input_xml,          only: read_input_xml, read_cross_sections_xml, &
+                                cells_in_univ_dict, read_plots_xml
+  use output,             only: title, header, write_summary, print_version, &
+                                print_usage, write_xs_summary, print_plot
   use output_interface
-  use random_lcg,       only: initialize_prng
-  use source,           only: initialize_source
-  use state_point,      only: load_state_point
-  use string,           only: to_str, str_to_int, starts_with, ends_with
-  use tally_header,     only: TallyObject, TallyResult
-  use tally_initialize, only: configure_tallies
+  use random_lcg,         only: initialize_prng
+  use source,             only: initialize_source
+  use state_point,        only: load_state_point
+  use string,             only: to_str, str_to_int, starts_with, ends_with
+  use tally_class,        only: TallyClass
+  use tally_filter_class, only: TallyFilterClass
+  use tally_result_class, only: TallyResultClass
+! use tally_initialize,   only: configure_tallies
 
 #ifdef MPI
   use mpi
@@ -113,7 +115,7 @@ contains
       end if
 
       ! Allocate and setup tally stride, matching_bins, and tally maps
-      call configure_tallies()
+!     call configure_tallies()
 
       ! Determine how much work each processor should do
       call calculate_work()
@@ -184,7 +186,7 @@ contains
     integer(MPI_ADDRESS_KIND) :: lower_bound     ! Lower bound for TallyResult
     integer(MPI_ADDRESS_KIND) :: extent          ! Extent for TallyResult
     type(Bank)       :: b
-    type(TallyResult) :: tr
+    type(TallyResultClass) :: tr
 
     ! Indicate that MPI is turned on
     mpi_enabled = .true.
@@ -226,8 +228,8 @@ contains
     ! CREATE MPI_TALLYRESULT TYPE
 
     ! Determine displacements for MPI_BANK type
-    call MPI_GET_ADDRESS(tr % value, result_base_disp, mpi_err)
-    call MPI_GET_ADDRESS(tr % sum, result_disp(1), mpi_err)
+    call MPI_GET_ADDRESS(tr % get_value(), result_base_disp, mpi_err)
+    call MPI_GET_ADDRESS(tr % get_sum(), result_disp(1), mpi_err)
 
     ! Adjust displacements
     result_disp = result_disp - result_base_disp
@@ -261,7 +263,7 @@ contains
 
   subroutine hdf5_initialize()
 
-    type(TallyResult), target :: tmp(2)          ! temporary TallyResult
+    type(TallyResultClass), target :: tmp(2)     ! temporary TallyResult
     type(Bank),        target :: tmpb(2)         ! temporary Bank
     integer(HID_T)            :: coordinates_t   ! HDF5 type for 3 reals
     integer(HSIZE_T)          :: dims(1) = (/3/) ! size of coordinates
@@ -273,9 +275,9 @@ contains
     call h5tcreate_f(H5T_COMPOUND_F, h5offsetof(c_loc(tmp(1)), &
          c_loc(tmp(2))), hdf5_tallyresult_t, hdf5_err)
     call h5tinsert_f(hdf5_tallyresult_t, "sum", h5offsetof(c_loc(tmp(1)), &
-         c_loc(tmp(1)%sum)), H5T_NATIVE_DOUBLE, hdf5_err)
+         c_loc(tmp(1)%get_sum())), H5T_NATIVE_DOUBLE, hdf5_err)
     call h5tinsert_f(hdf5_tallyresult_t, "sum_sq", h5offsetof(c_loc(tmp(1)), &
-         c_loc(tmp(1)%sum_sq)), H5T_NATIVE_DOUBLE, hdf5_err)
+         c_loc(tmp(1)%get_sum_sq())), H5T_NATIVE_DOUBLE, hdf5_err)
 
     ! Create compound type for xyz and uvw
     call h5tarray_create_f(H5T_NATIVE_DOUBLE, 1, dims, coordinates_t, hdf5_err)
@@ -568,7 +570,8 @@ contains
     integer :: id            ! user-specified id
     type(Cell),        pointer :: c => null()
     type(Lattice),     pointer :: lat => null()
-    type(TallyObject), pointer :: t => null()
+    class(TallyClass), pointer :: t => null()
+    class(TallyFilterClass), pointer :: f => null()
 
     do i = 1, n_cells
       ! =======================================================================
@@ -675,65 +678,67 @@ contains
     end do
 
     TALLY_LOOP: do i = 1, n_tallies
-      t => tallies(i)
+      t => tallies(i) % p
 
       ! =======================================================================
       ! ADJUST INDICES FOR EACH TALLY FILTER
 
-      FILTER_LOOP: do j = 1, t % n_filters
+      FILTER_LOOP: do j = 1, t % get_n_filters()
 
-        select case (t % filters(j) % type)
+        f => t % get_filter(j)
+
+        select case (f % get_type())
         case (FILTER_CELL, FILTER_CELLBORN)
 
-          do k = 1, t % filters(j) % n_bins
-            id = t % filters(j) % int_bins(k)
+          do k = 1, f % get_n_bins()
+            id = f % get_int_bin(k)
             if (cell_dict % has_key(id)) then
-              t % filters(j) % int_bins(k) = cell_dict % get_key(id)
+              call f % set_int_bin(k, cell_dict % get_key(id))
             else
               message = "Could not find cell " // trim(to_str(id)) // &
-                   " specified on tally " // trim(to_str(t % id))
+                   " specified on tally " // trim(to_str(t % get_id()))
               call fatal_error(message)
             end if
           end do
 
-        case (FILTER_SURFACE)
+!       case (FILTER_SURFACE)
 
           ! Check if this is a surface filter only for surface currents
-          if (any(t % score_bins == SCORE_CURRENT)) cycle FILTER_LOOP
+!         if (any(t % score_bins == SCORE_CURRENT)) cycle FILTER_LOOP
 
-          do k = 1, t % filters(j) % n_bins
-            id = t % filters(j) % int_bins(k)
-            if (surface_dict % has_key(id)) then
-              t % filters(j) % int_bins(k) = surface_dict % get_key(id)
-            else
-              message = "Could not find surface " // trim(to_str(id)) // &
-                   " specified on tally " // trim(to_str(t % id))
-              call fatal_error(message)
-            end if
-          end do
+!         do k = 1, t % filters(j) % n_bins
+!           id = t % filters(j) % int_bins(k)
+!           if (surface_dict % has_key(id)) then
+!             t % filters(j) % int_bins(k) = surface_dict % get_key(id)
+!           else
+!             message = "Could not find surface " // trim(to_str(id)) // &
+!                  " specified on tally " // trim(to_str(t % id))
+!             call fatal_error(message)
+!           end if
+!         end do
 
         case (FILTER_UNIVERSE)
 
-          do k = 1, t % filters(j) % n_bins
-            id = t % filters(j) % int_bins(k)
+          do k = 1, f % get_n_bins()
+            id = f % get_int_bin(k)
             if (universe_dict % has_key(id)) then
-              t % filters(j) % int_bins(k) = universe_dict % get_key(id)
+              call f % set_int_bin(k, universe_dict % get_key(id))
             else
               message = "Could not find universe " // trim(to_str(id)) // &
-                   " specified on tally " // trim(to_str(t % id))
+                   " specified on tally " // trim(to_str(t % get_id()))
               call fatal_error(message)
             end if
           end do
 
         case (FILTER_MATERIAL)
 
-          do k = 1, t % filters(j) % n_bins
-            id = t % filters(j) % int_bins(k)
+          do k = 1, f % get_n_bins()
+            id = f % get_int_bin(k)
             if (material_dict % has_key(id)) then
-              t % filters(j) % int_bins(k) = material_dict % get_key(id)
+              call f % set_int_bin(k, material_dict % get_key(id))
             else
               message = "Could not find material " // trim(to_str(id)) // &
-                   " specified on tally " // trim(to_str(t % id))
+                   " specified on tally " // trim(to_str(t % get_id()))
               call fatal_error(message)
             end if
           end do

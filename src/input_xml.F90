@@ -1,20 +1,21 @@
 module input_xml
 
-  use cmfd_input,       only: configure_cmfd
+  use cmfd_input,         only: configure_cmfd
   use constants
-  use dict_header,      only: DictIntInt, ElemKeyValueCI
-  use error,            only: fatal_error, warning, write_message
-  use geometry_header,  only: Cell, Surface, Lattice
+  use dict_header,        only: DictIntInt, ElemKeyValueCI
+  use error,              only: fatal_error, warning, write_message
+  use geometry_header,    only: Cell, Surface, Lattice
   use global
-  use list_header,      only: ListChar, ListReal
-  use mesh_header,      only: StructuredMesh
+  use list_header,        only: ListChar, ListReal
+  use mesh_header,        only: StructuredMesh
   use plot_header
-  use random_lcg,       only: prn, seed
-  use string,           only: lower_case, to_str, str_to_int, str_to_real, &
-                              starts_with, ends_with
-  use tally_new,        only: read_tallies_new
-  use tally_header,     only: TallyObject, TallyFilter
-  use tally_initialize, only: add_tallies
+  use random_lcg,         only: prn, seed
+  use string,             only: lower_case, to_str, str_to_int, str_to_real, &
+                                starts_with, ends_with
+  use tally_class
+  use tally_filter_class
+  use tally_initialize,   only: add_tallies
+  use tally_score_class
   use xml_interface
 
   implicit none
@@ -39,7 +40,6 @@ contains
     call read_materials_xml()
     call read_tallies_xml()
     if (cmfd_run) call configure_cmfd()
-    call read_tallies_new()
 
   end subroutine read_input_xml
 
@@ -1745,6 +1745,7 @@ contains
     integer :: l             ! another loop index
     integer :: id            ! user-specified identifier
     integer :: i_mesh        ! index in meshes array
+    integer :: int_scalar    ! temporary scalar integer
     integer :: n             ! size of arrays in mesh specification
     integer :: n_words       ! number of words read
     integer :: n_filters     ! number of filters
@@ -1756,17 +1757,17 @@ contains
     integer :: MT            ! user-specified MT for score
     integer :: iarray3(3)    ! temporary integer array
     integer :: imomstr       ! Index of MOMENT_STRS & MOMENT_N_STRS
+    integer, allocatable :: int_bins(:) ! temporary array for integer bins
     logical :: file_exists   ! does tallies.xml file exist?
     real(8) :: rarray3(3)    ! temporary double prec. array
+    real(8), allocatable :: real_bins(:) ! temporary array for real bins
     character(MAX_LINE_LEN) :: filename
     character(MAX_WORD_LEN) :: word
     character(MAX_WORD_LEN) :: score_name
     character(MAX_WORD_LEN) :: temp_str
     character(MAX_WORD_LEN), allocatable :: sarray(:)
     type(ElemKeyValueCI), pointer :: pair_list => null()
-    type(TallyObject),    pointer :: t => null()
     type(StructuredMesh), pointer :: m => null()
-    type(TallyFilter), allocatable :: filters(:) ! temporary filters
     type(Node), pointer :: doc => null()
     type(Node), pointer :: node_mesh => null()
     type(Node), pointer :: node_tal => null()
@@ -1774,6 +1775,9 @@ contains
     type(NodeList), pointer :: node_mesh_list => null()
     type(NodeList), pointer :: node_tal_list => null()
     type(NodeList), pointer :: node_filt_list => null()
+    class(TallyClass), pointer :: t => null()
+    class(TallyFilterClass), pointer :: f => null()
+    class(TallyScoreClass), pointer :: s => null()
 
     ! Check if tallies.xml exists
     filename = trim(path_input) // "tallies.xml"
@@ -1971,67 +1975,54 @@ contains
     ! READ TALLY DATA
 
     READ_TALLIES: do i = 1, n_user_tallies
-      ! Get pointer to tally
-      t => tallies(i)
 
       ! Get pointer to tally xml node
       call get_list_item(node_tal_list, i, node_tal)
 
-      ! Set tally type to volume by default
-      t % type = TALLY_VOLUME
+      ! Check if user specified estimator
+      if (check_for_node(node_tal, "estimator")) then
+        temp_str = ''
+        call get_node_value(node_tal, "estimator", temp_str)
+      else
+        temp_str = 'tracklength'
+      end if
 
-      ! It's desirable to use a track-length esimator for tallies since
-      ! generally more events will score to the tally, reducing the
-      ! variance. However, for tallies that require information on
-      ! post-collision parameters (e.g. tally with an energyout filter) the
-      ! analog esimator must be used.
-
-      t % estimator = ESTIMATOR_TRACKLENGTH
+      ! Allocate tally pointer
+      select case(trim(temp_str))
+      case ('analog')
+        tallies(i) % p => AnalogTallyClass()
+      case ('tracklength', 'track-length', 'pathlength', 'path-length')
+        tallies(i) % p => TracklengthTallyClass()
+      case ('collision')
+        tallies(i) % p => CollisionTallyClass()
+      case default
+        message = "Invalid estimator '" // trim(temp_str) &
+             // "' on tally "
+        call fatal_error(message)
+      end select
+      t => tallies(i) % p
 
       ! Copy material id
       if (check_for_node(node_tal, "id")) then
-        call get_node_value(node_tal, "id", t % id)
+        call get_node_value(node_tal, "id", int_scalar)
       else
         message = "Must specify id for tally in tally XML file."
         call fatal_error(message)
       end if
-
-      ! Check to make sure 'id' hasn't been used
-      if (tally_dict % has_key(t % id)) then
-        message = "Two or more tallies use the same unique ID: " // &
-             to_str(t % id)
-        call fatal_error(message)
-      end if
-
-      ! Copy tally label
-      t % label = ''
-      if (check_for_node(node_tal, "label")) &
-        call get_node_value(node_tal, "label", t % label)
-
-      ! =======================================================================
-      ! READ DATA FOR FILTERS
-
-      ! In older versions, tally filters were specified with a <filters>
-      ! element followed by sub-elements <cell>, <mesh>, etc. This checks for
-      ! the old format and if it is present, raises an error
-
-!     if (get_number_nodes(node_tal, "filters") > 0) then
-!       message = "Tally filters should be specified with multiple <filter> &
-!            &elements. Did you forget to change your <filters> element?"
-!       call fatal_error(message)
-!     end if
+      call t % set_id(int_scalar)
 
       ! Get pointer list to XML <filter> and get number of filters
       call get_node_list(node_tal, "filter", node_filt_list)
       n_filters = get_list_size(node_filt_list)
 
+      ! Process filters
       if (n_filters /= 0) then
 
-        ! Allocate filters array
-        t % n_filters = n_filters
-        allocate(t % filters(n_filters))
+        ! Allocate filters in tally instance
+        call t % allocate_filters(n_filters)
 
         READ_FILTERS: do j = 1, n_filters
+
           ! Get pointer to filter xml node
           call get_list_item(node_filt_list, j, node_filt)
 
@@ -2050,627 +2041,133 @@ contains
               n_words = get_arraysize_integer(node_filt, "bins")
             end if
           else
-            message = "Bins not set in filter on tally " // trim(to_str(t % id))
+            message = "Bins not set in filter on tally "
             call fatal_error(message)
           end if
 
-          ! Determine type of filter
+          ! Allocate type of filter
           select case (temp_str)
-          case ('cell')
-            ! Set type of filter
-            t % filters(j) % type = FILTER_CELL
-
-            ! Set number of bins
-            t % filters(j) % n_bins = n_words
-
-            ! Allocate and store bins
-            allocate(t % filters(j) % int_bins(n_words))
-            call get_node_array(node_filt, "bins", t % filters(j) % int_bins)
-
-          case ('cellborn')
-            ! Set type of filter
-            t % filters(j) % type = FILTER_CELLBORN
-
-            ! Set number of bins
-            t % filters(j) % n_bins = n_words
-
-            ! Allocate and store bins
-            allocate(t % filters(j) % int_bins(n_words))
-            call get_node_array(node_filt, "bins", t % filters(j) % int_bins)
-
-          case ('material')
-            ! Set type of filter
-            t % filters(j) % type = FILTER_MATERIAL
-
-            ! Set number of bins
-            t % filters(j) % n_bins = n_words
-
-            ! Allocate and store bins
-            allocate(t % filters(j) % int_bins(n_words))
-            call get_node_array(node_filt, "bins", t % filters(j) % int_bins)
-
-          case ('universe')
-            ! Set type of filter
-            t % filters(j) % type = FILTER_UNIVERSE
-
-            ! Set number of bins
-            t % filters(j) % n_bins = n_words
-
-            ! Allocate and store bins
-            allocate(t % filters(j) % int_bins(n_words))
-            call get_node_array(node_filt, "bins", t % filters(j) % int_bins)
-
-          case ('surface')
-            message = "Surface filter is not yet supported!"
-            call fatal_error(message)
-
-            ! Set type of filter
-            t % filters(j) % type = FILTER_SURFACE
-
-            ! Set number of bins
-            t % filters(j) % n_bins = n_words
-
-            ! Allocate and store bins
-            allocate(t % filters(j) % int_bins(n_words))
-            call get_node_array(node_filt, "bins", t % filters(j) % int_bins)
-
-          case ('mesh')
-            ! Set type of filter
-            t % filters(j) % type = FILTER_MESH
-
-            ! Check to make sure multiple meshes weren't given
-            if (n_words /= 1) then
-              message = "Can only have one mesh filter specified."
-              call fatal_error(message)
-            end if
-
-            ! Determine id of mesh
-            call get_node_value(node_filt, "bins", id)
-
-            ! Get pointer to mesh
-            if (mesh_dict % has_key(id)) then
-              i_mesh = mesh_dict % get_key(id)
-              m => meshes(i_mesh)
-            else
-              message = "Could not find mesh " // trim(to_str(id)) // &
-                   " specified on tally " // trim(to_str(t % id))
-              call fatal_error(message)
-            end if
-
-            ! Determine number of bins -- this is assuming that the tally is
-            ! a volume tally and not a surface current tally. If it is a
-            ! surface current tally, the number of bins will get reset later
-            t % filters(j) % n_bins = product(m % dimension)
-
-            ! Allocate and store index of mesh
-            allocate(t % filters(j) % int_bins(1))
-            t % filters(j) % int_bins(1) = i_mesh
 
           case ('energy')
-            ! Set type of filter
-            t % filters(j) % type = FILTER_ENERGYIN
-
-            ! Set number of bins
-            t % filters(j) % n_bins = n_words - 1
-
-            ! Allocate and store bins
-            allocate(t % filters(j) % real_bins(n_words))
-            call get_node_array(node_filt, "bins", t % filters(j) % real_bins)
+            f => EnergyFilterClass()
 
           case ('energyout')
-            ! Set type of filter
-            t % filters(j) % type = FILTER_ENERGYOUT
+            f => EnergyOutFilterClass()
 
-            ! Set number of bins
-            t % filters(j) % n_bins = n_words - 1
-
-            ! Allocate and store bins
-            allocate(t % filters(j) % real_bins(n_words))
-            call get_node_array(node_filt, "bins", t % filters(j) % real_bins)
-
-            ! Set to analog estimator
-            t % estimator = ESTIMATOR_ANALOG
+          case ('mesh')
+            f => MeshFilterClass()
 
           case default
+
             ! Specified tally filter is invalid, raise error
             message = "Unknown filter type '" // &
-                 trim(temp_str) // "' on tally " // &
-                 trim(to_str(t % id)) // "."
+                 trim(temp_str) // "' on tally "
             call fatal_error(message)
 
           end select
 
-          ! Set find_filter, e.g. if filter(3) has type FILTER_CELL, then
-          ! find_filter(FILTER_CELL) would be set to 3.
+          ! Set up filters
+          select type (f)
 
-          t % find_filter(t % filters(j) % type) = j
+          type is (EnergyFilterClass)
 
-        end do READ_FILTERS
+            ! Read in bins and set to filter
+            allocate(real_bins(n_words))
+            call get_node_array(node_filt, "bins", real_bins)
+            call f % set_bins(n_words - 1, real_bins)
+            deallocate(real_bins)
 
-        ! Check that both cell and surface weren't specified
-        if (t % find_filter(FILTER_CELL) > 0 .and. &
-             t % find_filter(FILTER_SURFACE) > 0) then
-          message = "Cannot specify both cell and surface filters for tally " &
-               // trim(to_str(t % id))
-          call fatal_error(message)
-        end if
+          type is (EnergyOutFilterClass)
 
-      else
-        ! No filters were specified
-        t % n_filters = 0
-      end if
+            ! Read in bins and set to filter
+            allocate(real_bins(n_words))
+            call get_node_array(node_filt, "bins", real_bins)
+            call f % set_bins(n_words - 1, real_bins)
+            deallocate(real_bins)
 
-      ! =======================================================================
-      ! READ DATA FOR NUCLIDES
+          type is (MeshFilterClass)
 
-      if (check_for_node(node_tal, "nuclides")) then
-
-        ! Allocate a temporary string array for nuclides and copy values over
-        allocate(sarray(get_arraysize_string(node_tal, "nuclides")))
-        call get_node_array(node_tal, "nuclides", sarray)
-
-        if (trim(sarray(1)) == 'all') then
-          ! Handle special case <nuclides>all</nuclides>
-          allocate(t % nuclide_bins(n_nuclides_total + 1))
-
-          ! Set bins to 1, 2, 3, ..., n_nuclides_total, -1
-          t % nuclide_bins(1:n_nuclides_total) = &
-               (/ (j, j=1, n_nuclides_total) /)
-          t % nuclide_bins(n_nuclides_total + 1) = -1
-
-          ! Set number of nuclide bins
-          t % n_nuclide_bins = n_nuclides_total + 1
-
-          ! Set flag so we can treat this case specially
-          t % all_nuclides = .true.
-        else
-          ! Any other case, e.g. <nuclides>U-235 Pu-239</nuclides>
-          n_words = get_arraysize_string(node_tal, "nuclides")
-          allocate(t % nuclide_bins(n_words))
-          do j = 1, n_words
-            ! Check if total material was specified
-            if (trim(sarray(j)) == 'total') then
-              t % nuclide_bins(j) = -1
-              cycle
-            end if
-
-            ! Check if xs specifier was given
-            if (ends_with(sarray(j), 'c')) then
-              word = sarray(j)
-            else
-              if (default_xs == '') then
-                ! No default cross section specified, search through nuclides
-                pair_list => nuclide_dict % keys()
-                do while (associated(pair_list))
-                  if (starts_with(pair_list % key, &
-                       sarray(j))) then
-                    word = pair_list % key(1:150)
-                    exit
-                  end if
-
-                  ! Advance to next
-                  pair_list => pair_list % next
-                end do
-
-                ! Check if no nuclide was found
-                if (.not. associated(pair_list)) then
-                  message = "Could not find the nuclide " // trim(&
-                       sarray(j)) // " specified in tally " &
-                       // trim(to_str(t % id)) // " in any material."
-                  call fatal_error(message)
-                end if
-                deallocate(pair_list)
-              else
-                ! Set nuclide to default xs
-                word = trim(sarray(j)) // "." // default_xs
-              end if
-            end if
-
-            ! Check to make sure nuclide specified is in problem
-            if (.not. nuclide_dict % has_key(word)) then
-              message = "The nuclide " // trim(word) // " from tally " // &
-                   trim(to_str(t % id)) // " is not present in any material."
+            ! Check to make sure only one mesh index is specified
+            if (n_words /= 1) then
+              message = "Only one mesh can be specified in a filter."
               call fatal_error(message)
             end if
 
-            ! Set bin to index in nuclides array
-            t % nuclide_bins(j) = nuclide_dict % get_key(word)
-          end do
+            ! Read in mesh index
+            allocate(int_bins(1))
+            call get_node_array(node_filt, "bins", int_bins)
 
-          ! Set number of nuclide bins
-          t % n_nuclide_bins = n_words
-        end if
+            ! Get mesh index from id
+            int_bins(1) = mesh_dict % get_key(int_bins(1))
 
-        ! Deallocate temporary string array
-        deallocate(sarray)
+            ! Set up mesh bins
+            call f % set_bins(meshes(int_bins(1)))
+            deallocate(int_bins)
 
-      else
-        ! No <nuclides> were specified -- create only one bin will be added
-        ! for the total material.
-        allocate(t % nuclide_bins(1))
-        t % nuclide_bins(1) = -1
-        t % n_nuclide_bins = 1
+          end select
+
+          ! Add filter to tally instance
+          call t % add_filter(f)
+
+        end do READ_FILTERS
       end if
 
-      ! =======================================================================
-      ! READ DATA FOR SCORES
-
+      ! Process tally scores
       if (check_for_node(node_tal, "scores")) then
+
+        ! Read string array from input
         n_words = get_arraysize_string(node_tal, "scores")
         allocate(sarray(n_words))
         call get_node_array(node_tal, "scores", sarray)
 
-        ! Before we can allocate storage for scores, we must determine the
-        ! number of additional scores required due to the moment scores
-        ! (i.e., scatter-p#, flux-y#)
-        n_new = 0
-        do j = 1, n_words
+        ! Handle moment stuff here in future
+
+        ! Allocate scores
+        n_scores = n_words
+        call t % allocate_scores(n_scores)
+
+        ! Loop arounds scores and initialize
+        READ_SCORES: do j = 1, n_scores
+
           call lower_case(sarray(j))
-          ! Find if scores(j) is of the form 'moment-p' or 'moment-y' present in
-          ! MOMENT_STRS(:)
-          ! If so, check the order, store if OK, then reset the number to 'n'
-          score_name = trim(sarray(j))
-          do imomstr = 1, size(MOMENT_STRS)
-            if (starts_with(score_name,trim(MOMENT_STRS(imomstr)))) then
-              n_order_pos = scan(score_name,'0123456789')
-              n_order = int(str_to_int( &
-                score_name(n_order_pos:(len_trim(score_name)))),4)
-              if (n_order > MAX_ANG_ORDER) then
-                ! User requested too many orders; throw a warning and set to the
-                ! maximum order.
-                ! The above scheme will essentially take the absolute value
-                message = "Invalid scattering order of " // trim(to_str(n_order)) // &
-                  " requested. Setting to the maximum permissible value, " // &
-                  trim(to_str(MAX_ANG_ORDER))
-                if (master) call warning(message)
-                n_order = MAX_ANG_ORDER
-                sarray(j) = trim(MOMENT_STRS(imomstr)) // &
-                  trim(to_str(MAX_ANG_ORDER))
-              end if
-              ! Find total number of bins for this case
-              if (imomstr >= YN_LOC) then
-                n_bins = (n_order + 1)**2
-              else
-                n_bins = n_order + 1
-              end if
-              ! We subtract one since n_words already included
-              n_new = n_new + n_bins - 1
-              exit
-            end if
-          end do
-        end do
-        n_scores = n_words + n_new
+          select case(sarray(j))
+          case('total')
 
-        ! Allocate score storage accordingly
-        allocate(t % score_bins(n_scores))
-        allocate(t % moment_order(n_scores))
-        t % moment_order = 0
-        j = 0
-        do l = 1, n_words
-          j = j + 1
-          ! Get the input string in scores(l) but if score is one of the moment
-          ! scores then strip off the n and store it as an integer to be used
-          ! later. Then perform the select case on this modified (number removed) string
-          score_name = sarray(l)
-          do imomstr = 1, size(MOMENT_STRS)
-            if (starts_with(score_name,trim(MOMENT_STRS(imomstr)))) then
-              n_order_pos = scan(score_name,'0123456789')
-              n_order = int(str_to_int( &
-                score_name(n_order_pos:(len_trim(score_name)))),4)
-              if (n_order > MAX_ANG_ORDER) then
-                ! User requested too many orders; throw a warning and set to the
-                ! maximum order.
-                ! The above scheme will essentially take the absolute value
-                message = "Invalid scattering order of " // trim(to_str(n_order)) // &
-                  " requested. Setting to the maximum permissible value, " // &
-                  trim(to_str(MAX_ANG_ORDER))
-                if (master) call warning(message)
-                n_order = MAX_ANG_ORDER
-              end if
-              score_name = trim(MOMENT_STRS(imomstr)) // "n"
-              ! Find total number of bins for this case
-              if (imomstr >= YN_LOC) then
-                n_bins = (n_order + 1)**2
-              else
-                n_bins = n_order + 1
-              end if
-              exit
-            end if
-          end do
-          ! Now check the Moment_N_Strs, but only if we werent successful above
-          if (imomstr > size(MOMENT_STRS)) then
-            do imomstr = 1, size(MOMENT_N_STRS)
-              if (starts_with(score_name,trim(MOMENT_N_STRS(imomstr)))) then
-                n_order_pos = scan(score_name,'0123456789')
-                n_order = int(str_to_int( &
-                  score_name(n_order_pos:(len_trim(score_name)))),4)
-                if (n_order > MAX_ANG_ORDER) then
-                  ! User requested too many orders; throw a warning and set to the
-                  ! maximum order.
-                  ! The above scheme will essentially take the absolute value
-                  message = "Invalid scattering order of " // trim(to_str(n_order)) // &
-                    " requested. Setting to the maximum permissible value, " // &
-                    trim(to_str(MAX_ANG_ORDER))
-                  if (master) call warning(message)
-                  n_order = MAX_ANG_ORDER
-                end if
-                score_name = trim(MOMENT_N_STRS(imomstr)) // "n"
-                exit
-              end if
-            end do
-          end if
+            ! Allocate a total score
+            s => TotalScoreClass() 
 
-          select case (trim(score_name))
-          case ('flux')
-            ! Prohibit user from tallying flux for an individual nuclide
-            if (.not. (t % n_nuclide_bins == 1 .and. &
-                 t % nuclide_bins(1) == -1)) then
-              message = "Cannot tally flux for an individual nuclide."
-              call fatal_error(message)
-            end if
+          case('nu-fission')
 
-            t % score_bins(j) = SCORE_FLUX
-            if (t % find_filter(FILTER_ENERGYOUT) > 0) then
-              message = "Cannot tally flux with an outgoing energy filter."
-              call fatal_error(message)
-            end if
-          case ('flux-yn')
-            ! Prohibit user from tallying flux for an individual nuclide
-            if (.not. (t % n_nuclide_bins == 1 .and. &
-                 t % nuclide_bins(1) == -1)) then
-              message = "Cannot tally flux for an individual nuclide."
-              call fatal_error(message)
-            end if
-
-            if (t % find_filter(FILTER_ENERGYOUT) > 0) then
-              message = "Cannot tally flux with an outgoing energy filter."
-              call fatal_error(message)
-            end if
-
-            t % score_bins(j : j + n_bins - 1) = SCORE_FLUX_YN
-            t % moment_order(j : j + n_bins - 1) = n_order
-            j = j + n_bins  - 1
-
-          case ('total')
-            t % score_bins(j) = SCORE_TOTAL
-            if (t % find_filter(FILTER_ENERGYOUT) > 0) then
-              message = "Cannot tally total reaction rate with an &
-                   &outgoing energy filter."
-              call fatal_error(message)
-            end if
-
-          case ('total-yn')
-            if (t % find_filter(FILTER_ENERGYOUT) > 0) then
-              message = "Cannot tally total reaction rate with an &
-                   &outgoing energy filter."
-              call fatal_error(message)
-            end if
-
-            t % score_bins(j : j + n_bins - 1) = SCORE_TOTAL_YN
-            t % moment_order(j : j + n_bins - 1) = n_order
-            j = j + n_bins - 1
-
-          case ('scatter')
-            t % score_bins(j) = SCORE_SCATTER
-
-          case ('nu-scatter')
-            t % score_bins(j) = SCORE_NU_SCATTER
-
-            ! Set tally estimator to analog
-            t % estimator = ESTIMATOR_ANALOG
-          case ('scatter-n')
-            if (n_order == 0) then
-              t % score_bins(j) = SCORE_SCATTER
-            else
-              t % score_bins(j) = SCORE_SCATTER_N
-              ! Set tally estimator to analog
-              t % estimator = ESTIMATOR_ANALOG
-            end if
-            t % moment_order(j) = n_order
-
-          case ('nu-scatter-n')
-            ! Set tally estimator to analog
-            t % estimator = ESTIMATOR_ANALOG
-            if (n_order == 0) then
-              t % score_bins(j) = SCORE_NU_SCATTER
-            else
-              t % score_bins(j) = SCORE_NU_SCATTER_N
-            end if
-            t % moment_order(j) = n_order
-
-          case ('scatter-pn')
-            t % estimator = ESTIMATOR_ANALOG
-            ! Setup P0:Pn
-            t % score_bins(j : j + n_bins - 1) = SCORE_SCATTER_PN
-            t % moment_order(j : j + n_bins - 1) = n_order
-            j = j + n_bins - 1
-
-          case ('nu-scatter-pn')
-            t % estimator = ESTIMATOR_ANALOG
-            ! Setup P0:Pn
-            t % score_bins(j : j + n_bins - 1) = SCORE_NU_SCATTER_PN
-            t % moment_order(j : j + n_bins - 1) = n_order
-            j = j + n_bins - 1
-
-          case ('scatter-yn')
-            t % estimator = ESTIMATOR_ANALOG
-            ! Setup P0:Pn
-            t % score_bins(j : j + n_bins - 1) = SCORE_SCATTER_YN
-            t % moment_order(j : j + n_bins - 1) = n_order
-            j = j + n_bins - 1
-
-          case ('nu-scatter-yn')
-            t % estimator = ESTIMATOR_ANALOG
-            ! Setup P0:Pn
-            t % score_bins(j : j + n_bins - 1) = SCORE_NU_SCATTER_YN
-            t % moment_order(j : j + n_bins - 1) = n_order
-            j = j + n_bins - 1
-
-          case('transport')
-            t % score_bins(j) = SCORE_TRANSPORT
-
-            ! Set tally estimator to analog
-            t % estimator = ESTIMATOR_ANALOG
-          case ('diffusion')
-            message = "Diffusion score no longer supported for tallies, &
-                      &please remove"
-            call fatal_error(message)
-          case ('n1n')
-            t % score_bins(j) = SCORE_N_1N
-
-            ! Set tally estimator to analog
-            t % estimator = ESTIMATOR_ANALOG
-          case ('n2n')
-            t % score_bins(j) = N_2N
-
-          case ('n3n')
-            t % score_bins(j) = N_3N
-
-          case ('n4n')
-            t % score_bins(j) = N_4N
-
-          case ('absorption')
-            t % score_bins(j) = SCORE_ABSORPTION
-            if (t % find_filter(FILTER_ENERGYOUT) > 0) then
-              message = "Cannot tally absorption rate with an outgoing &
-                   &energy filter."
-              call fatal_error(message)
-            end if
-          case ('fission')
-            t % score_bins(j) = SCORE_FISSION
-            if (t % find_filter(FILTER_ENERGYOUT) > 0) then
-              message = "Cannot tally fission rate with an outgoing &
-                   &energy filter."
-              call fatal_error(message)
-            end if
-          case ('nu-fission')
-            t % score_bins(j) = SCORE_NU_FISSION
-            if (t % find_filter(FILTER_ENERGYOUT) > 0) then
-              ! Set tally estimator to analog
-              t % estimator = ESTIMATOR_ANALOG
-            end if
-          case ('kappa-fission')
-            t % score_bins(j) = SCORE_KAPPA_FISSION
-          case ('current')
-            t % score_bins(j) = SCORE_CURRENT
-            t % type = TALLY_SURFACE_CURRENT
-
-            ! Check to make sure that current is the only desired response
-            ! for this tally
-            if (n_words > 1) then
-              message = "Cannot tally other scoring functions in the same &
-                   &tally as surface currents. Separate other scoring &
-                   &functions into a distinct tally."
-              call fatal_error(message)
-            end if
-
-            ! Since the number of bins for the mesh filter was already set
-            ! assuming it was a volume tally, we need to adjust the number
-            ! of bins
-
-            ! Get index of mesh filter
-            k = t % find_filter(FILTER_MESH)
-
-            ! Get pointer to mesh
-            i_mesh = t % filters(k) % int_bins(1)
-            m => meshes(i_mesh)
-
-            ! We need to increase the dimension by one since we also need
-            ! currents coming into and out of the boundary mesh cells.
-            t % filters(k) % n_bins = product(m % dimension + 1)
-
-            ! Copy filters to temporary array
-            allocate(filters(t % n_filters + 1))
-            filters(1:t % n_filters) = t % filters
-
-            ! Move allocation back -- filters becomes deallocated during
-            ! this call
-            call move_alloc(FROM=filters, TO=t%filters)
-
-            ! Add surface filter
-            t % n_filters = t % n_filters + 1
-            t % filters(t % n_filters) % type = FILTER_SURFACE
-            t % filters(t % n_filters) % n_bins = 2 * m % n_dimension
-            allocate(t % filters(t % n_filters) % int_bins(&
-                 2 * m % n_dimension))
-            if (m % n_dimension == 2) then
-              t % filters(t % n_filters) % int_bins = (/ IN_RIGHT, &
-                   OUT_RIGHT, IN_FRONT, OUT_FRONT /)
-            elseif (m % n_dimension == 3) then
-              t % filters(t % n_filters) % int_bins = (/ IN_RIGHT, &
-                   OUT_RIGHT, IN_FRONT, OUT_FRONT, IN_TOP, OUT_TOP /)
-            end if
-            t % find_filter(FILTER_SURFACE) = t % n_filters
-
-          case ('events')
-            t % score_bins(j) = SCORE_EVENTS
+            ! Allocate a nu-fission score
+            s => NuFissionScoreClass()
 
           case default
-            ! Assume that user has specified an MT number
-            MT = int(str_to_int(score_name))
 
-            if (MT /= ERROR_INT) then
-              ! Specified score was an integer
-              if (MT > 1) then
-                t % score_bins(j) = MT
-              else
-                message = "Invalid MT on <scores>: " // &
-                     trim(sarray(l))
-                call fatal_error(message)
-              end if
-
-            else
-              ! Specified score was not an integer
-              message = "Unknown scoring function: " // &
-                   trim(sarray(l))
-              call fatal_error(message)
-            end if
-
+            ! Specified tally score is invalid, raise error
+            message = "Unknown score type '" // &
+                 trim(sarray(j)) // "' on tally "
+            call fatal_error(message)
+          
           end select
-        end do
-        t % n_score_bins = n_scores
-        t % n_user_score_bins = n_words
+
+          ! Add score to tally instance
+          call t % add_score(s)
+
+        end do READ_SCORES
 
         ! Deallocate temporary string array of scores
         deallocate(sarray)
+
       else
-        message = "No <scores> specified on tally " // trim(to_str(t % id)) &
-             // "."
+
+        ! Error if there are no scores specified for a tally
+        message = "No <scores> specified on tally "
         call fatal_error(message)
+
       end if
 
-      ! =======================================================================
-      ! SET TALLY ESTIMATOR
-
-      ! Check if user specified estimator
-      if (check_for_node(node_tal, "estimator")) then
-        temp_str = ''
-        call get_node_value(node_tal, "estimator", temp_str)
-        select case(trim(temp_str))
-        case ('analog', 'collision')
-          t % estimator = ESTIMATOR_ANALOG
-
-        case ('tracklength', 'track-length', 'pathlength', 'path-length')
-          ! If the estimator was set to an analog estimator, this means the
-          ! tally needs post-collision information
-          if (t % estimator == ESTIMATOR_ANALOG) then
-            message = "Cannot use track-length estimator for tally " &
-                 // to_str(t % id)
-            call fatal_error(message)
-          end if
-
-          ! Set estimator to track-length estimator
-          t % estimator = ESTIMATOR_TRACKLENGTH
-
-        case default
-          message = "Invalid estimator '" // trim(temp_str) &
-               // "' on tally " // to_str(t % id)
-          call fatal_error(message)
-        end select
-      end if
-
-      ! Add tally to dictionary
-      call tally_dict % add_key(t % id, i)
+      ! Finish tally setup
+      call t % finish_setup()
 
     end do READ_TALLIES
 

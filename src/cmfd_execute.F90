@@ -411,7 +411,6 @@ contains
   subroutine cmfd_tally_reset()
 
     use error,  only: write_message
-    use tally,   only: reset_result
 
     integer :: i ! loop counter
 
@@ -423,8 +422,8 @@ contains
     do i = 1, n_cmfd_tallies
 
       ! Reset that tally
-      cmfd_tallies(i) % n_realizations = 0
-      call reset_result(cmfd_tallies(i) % results)
+!     cmfd_tallies(i) % n_realizations = 0
+!     call reset_result(cmfd_tallies(i) % results)
 
     end do
 

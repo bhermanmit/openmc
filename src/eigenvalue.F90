@@ -19,9 +19,7 @@ module eigenvalue
   use source,       only: get_source_particle
   use state_point,  only: write_state_point, write_source_point
   use string,       only: to_str
-  use tally,        only: synchronize_tallies, setup_active_usertallies, &
-                          reset_result
-  use tally_new,    only: setup_active_usertallies_new
+  use tally,        only: setup_active_usertallies, synchronize_tallies
   use tracking,     only: transport
 
   implicit none
@@ -160,7 +158,6 @@ contains
       ! Add user tallies to active tallies list
 !$omp parallel
       call setup_active_usertallies()
-      call setup_active_usertallies_new()
 !$omp end parallel
     end if
 
@@ -185,7 +182,7 @@ contains
     if (ufs) call count_source_for_ufs()
 
     ! Store current value of tracklength k
-    keff_generation = global_tallies(K_TRACKLENGTH) % value
+    keff_generation = global_tallies(K_TRACKLENGTH) % get_value()
 
   end subroutine initialize_generation
 
@@ -232,7 +229,7 @@ contains
 
     ! Reset global tally results
     if (.not. active_batches) then
-      call reset_result(global_tallies)
+      call global_tallies % reset()
       n_realizations = 0
     end if
 
@@ -616,7 +613,7 @@ contains
   subroutine calculate_generation_keff()
 
     ! Get keff for this generation by subtracting off the starting value
-    keff_generation = global_tallies(K_TRACKLENGTH) % value - keff_generation
+    keff_generation = global_tallies(K_TRACKLENGTH) % get_value() - keff_generation
 
 #ifdef MPI
     ! Combine values across all processors
@@ -708,14 +705,14 @@ contains
     k_combined = ZERO
 
     ! Copy estimates of k-effective and its variance (not variance of the mean)
-    kv(1) = global_tallies(K_COLLISION) % sum / n
-    kv(2) = global_tallies(K_ABSORPTION) % sum / n
-    kv(3) = global_tallies(K_TRACKLENGTH) % sum / n
-    cov(1,1) = (global_tallies(K_COLLISION) % sum_sq - &
+    kv(1) = global_tallies(K_COLLISION) % get_sum() / real(n, 8)
+    kv(2) = global_tallies(K_ABSORPTION) % get_sum() / real(n, 8)
+    kv(3) = global_tallies(K_TRACKLENGTH) % get_sum() / real(n, 8)
+    cov(1,1) = (global_tallies(K_COLLISION) % get_sum_sq() - &
          n * kv(1) * kv(1)) / (n - 1)
-    cov(2,2) = (global_tallies(K_ABSORPTION) % sum_sq - &
+    cov(2,2) = (global_tallies(K_ABSORPTION) % get_sum_sq() - &
          n * kv(2) * kv(2)) / (n - 1)
-    cov(3,3) = (global_tallies(K_TRACKLENGTH) % sum_sq - &
+    cov(3,3) = (global_tallies(K_TRACKLENGTH) % get_sum_sq() - &
          n * kv(3) * kv(3)) / (n - 1)
 
     ! Calculate covariances based on sums with Bessel's correction

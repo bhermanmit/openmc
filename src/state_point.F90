@@ -19,7 +19,6 @@ module state_point
   use string,             only: to_str
   use output_interface
   use random_lcg,         only: seed
-  use tally_header,       only: TallyObject
 
 #ifdef MPI
   use mpi
@@ -42,7 +41,6 @@ contains
     integer                 :: i
     integer                 :: j
     integer, allocatable    :: temp_array(:)
-    type(TallyObject), pointer :: t => null()
 
     ! Set filename for state point
     filename = trim(path_output) // 'statepoint.' // &
@@ -155,82 +153,82 @@ contains
       call sp % write_data(n_tallies, "n_tallies", group="tallies")
 
       ! Write all tally information except results
-      TALLY_METADATA: do i = 1, n_tallies
-        !Get pointer to tally
-        t => tallies(i)
-
-        ! Write id
-        call sp % write_data(t % id, "id", group="tallies/tally" // to_str(i))
-
-        ! Write number of realizations
-        call sp % write_data(t % n_realizations, "n_realizations", &
-             group="tallies/tally" // to_str(i))
-
-        ! Write size of each tally
-        call sp % write_data(t % total_score_bins, "total_score_bins", &
-             group="tallies/tally" // to_str(i))
-        call sp % write_data(t % total_filter_bins, "total_filter_bins", &
-             group="tallies/tally" // to_str(i))
-
-        ! Write number of filters
-        call sp % write_data(t % n_filters, "n_filters", &
-             group="tallies/tally" // to_str(i))
-
-        ! Write filter information
-        FILTER_LOOP: do j = 1, t % n_filters
-
-          ! Write type of filter
-          call sp % write_data(t % filters(j) % type, "type", &
-               group="tallies/tally" // trim(to_str(i)) // "/filter" // to_str(j))
-
-          ! Write number of bins for this filter
-          call sp % write_data(t % filters(j) % n_bins, "n_bins", &
-               group="tallies/tally" // trim(to_str(i)) // "/filter" // to_str(j))
-
-          ! Write bins
-          if (t % filters(j) % type == FILTER_ENERGYIN .or. &
-              t % filters(j) % type == FILTER_ENERGYOUT) then
-            call sp % write_data(t % filters(j) % real_bins, "bins", &
-                 group="tallies/tally" // trim(to_str(i)) // "/filter" // to_str(j), &
-                 length=size(t % filters(j) % real_bins))
-          else
-            call sp % write_data(t % filters(j) % int_bins, "bins", &
-                 group="tallies/tally" // trim(to_str(i)) // "/filter" // to_str(j), &
-                 length=size(t % filters(j) % int_bins))
-          end if
-
-        end do FILTER_LOOP
-
-        ! Write number of nuclide bins
-        call sp % write_data(t % n_nuclide_bins, "n_nuclide_bins", &
-             group="tallies/tally" // to_str(i))
-
-        ! Set up nuclide bin array and then write
-        allocate(temp_array(t % n_nuclide_bins))
-        NUCLIDE_LOOP: do j = 1, t % n_nuclide_bins
-          if (t % nuclide_bins(j) > 0) then
-            temp_array(j) = nuclides(t % nuclide_bins(j)) % zaid
-          else
-            temp_array(j) = t % nuclide_bins(j)
-          end if
-        end do NUCLIDE_LOOP
-        call sp % write_data(temp_array, "nuclide_bins", &
-             group="tallies/tally" // to_str(i), length=t % n_nuclide_bins)
-        deallocate(temp_array)
-
-        ! Write number of score bins, score bins, and moment order
-        call sp % write_data(t % n_score_bins, "n_score_bins", &
-             group="tallies/tally" // to_str(i))
-        call sp % write_data(t % score_bins, "score_bins", &
-             group="tallies/tally" // to_str(i), length=t % n_score_bins)
-        call sp % write_data(t % moment_order, "moment_order", &
-             group="tallies/tally" // to_str(i), length=t % n_score_bins)
-
-        ! Write number of user score bins
-        call sp % write_data(t % n_user_score_bins, "n_user_score_bins", &
-             group="tallies/tally" // to_str(i))
-
-      end do TALLY_METADATA
+!      TALLY_METADATA: do i = 1, n_tallies
+!        !Get pointer to tally
+!        t => tallies(i)
+!
+!        ! Write id
+!        call sp % write_data(t % id, "id", group="tallies/tally" // to_str(i))
+!
+!        ! Write number of realizations
+!        call sp % write_data(t % n_realizations, "n_realizations", &
+!             group="tallies/tally" // to_str(i))
+!
+!        ! Write size of each tally
+!        call sp % write_data(t % total_score_bins, "total_score_bins", &
+!             group="tallies/tally" // to_str(i))
+!        call sp % write_data(t % total_filter_bins, "total_filter_bins", &
+!             group="tallies/tally" // to_str(i))
+!
+!        ! Write number of filters
+!        call sp % write_data(t % n_filters, "n_filters", &
+!             group="tallies/tally" // to_str(i))
+!
+!        ! Write filter information
+!        FILTER_LOOP: do j = 1, t % n_filters
+!
+!          ! Write type of filter
+!          call sp % write_data(t % filters(j) % type, "type", &
+!               group="tallies/tally" // trim(to_str(i)) // "/filter" // to_str(j))
+!
+!          ! Write number of bins for this filter
+!          call sp % write_data(t % filters(j) % n_bins, "n_bins", &
+!               group="tallies/tally" // trim(to_str(i)) // "/filter" // to_str(j))
+!
+!          ! Write bins
+!          if (t % filters(j) % type == FILTER_ENERGYIN .or. &
+!              t % filters(j) % type == FILTER_ENERGYOUT) then
+!            call sp % write_data(t % filters(j) % real_bins, "bins", &
+!                 group="tallies/tally" // trim(to_str(i)) // "/filter" // to_str(j), &
+!                 length=size(t % filters(j) % real_bins))
+!          else
+!            call sp % write_data(t % filters(j) % int_bins, "bins", &
+!                 group="tallies/tally" // trim(to_str(i)) // "/filter" // to_str(j), &
+!                 length=size(t % filters(j) % int_bins))
+!          end if
+!
+!        end do FILTER_LOOP
+!
+!        ! Write number of nuclide bins
+!        call sp % write_data(t % n_nuclide_bins, "n_nuclide_bins", &
+!             group="tallies/tally" // to_str(i))
+!
+!        ! Set up nuclide bin array and then write
+!        allocate(temp_array(t % n_nuclide_bins))
+!        NUCLIDE_LOOP: do j = 1, t % n_nuclide_bins
+!          if (t % nuclide_bins(j) > 0) then
+!            temp_array(j) = nuclides(t % nuclide_bins(j)) % zaid
+!          else
+!            temp_array(j) = t % nuclide_bins(j)
+!          end if
+!        end do NUCLIDE_LOOP
+!        call sp % write_data(temp_array, "nuclide_bins", &
+!             group="tallies/tally" // to_str(i), length=t % n_nuclide_bins)
+!        deallocate(temp_array)
+!
+!        ! Write number of score bins, score bins, and moment order
+!        call sp % write_data(t % n_score_bins, "n_score_bins", &
+!             group="tallies/tally" // to_str(i))
+!        call sp % write_data(t % score_bins, "score_bins", &
+!             group="tallies/tally" // to_str(i), length=t % n_score_bins)
+!        call sp % write_data(t % moment_order, "moment_order", &
+!             group="tallies/tally" // to_str(i), length=t % n_score_bins)
+!
+!        ! Write number of user score bins
+!        call sp % write_data(t % n_user_score_bins, "n_user_score_bins", &
+!             group="tallies/tally" // to_str(i))
+!
+!      end do TALLY_METADATA
 
       ! Indicate where source bank is stored in statepoint
       if (source_separate) then
@@ -251,38 +249,38 @@ contains
     elseif (master) then
 
       ! Write number of global realizations
-      call sp % write_data(n_realizations, "n_realizations")
+!     call sp % write_data(n_realizations, "n_realizations")
 
       ! Write global tallies
-      call sp % write_data(N_GLOBAL_TALLIES, "n_global_tallies")
-      call sp % write_tally_result(global_tallies, "global_tallies", &
-           n1=N_GLOBAL_TALLIES, n2=1)
+!     call sp % write_data(N_GLOBAL_TALLIES, "n_global_tallies")
+!     call sp % write_tally_result(global_tallies, "global_tallies", &
+!          n1=N_GLOBAL_TALLIES, n2=1)
 
       ! Write tallies
-      if (tallies_on) then
-
-        ! Indicate that tallies are on
-        call sp % write_data(1, "tallies_present", group="tallies")
-
-        ! Write all tally results
-        TALLY_RESULTS: do i = 1, n_tallies
-
-          ! Set point to current tally
-          t => tallies(i)
-
-          ! Write sum and sum_sq for each bin
-          call sp % write_tally_result(t % results, "results", &
-               group="tallies/tally" // to_str(i), &
-               n1=size(t % results, 1), n2=size(t % results, 2))
-
-        end do TALLY_RESULTS
-
-      else
-
+!      if (tallies_on) then
+!
+!        ! Indicate that tallies are on
+!        call sp % write_data(1, "tallies_present", group="tallies")
+!
+!        ! Write all tally results
+!        TALLY_RESULTS: do i = 1, n_tallies
+!
+!          ! Set point to current tally
+!          t => tallies(i)
+!
+!          ! Write sum and sum_sq for each bin
+!          call sp % write_tally_result(t % results, "results", &
+!               group="tallies/tally" // to_str(i), &
+!               n1=size(t % results, 1), n2=size(t % results, 2))
+!
+!        end do TALLY_RESULTS
+!
+!      else
+!
         ! Indicate tallies are off
         call sp % write_data(0, "tallies_present", group="tallies")
-
-      end if
+!
+!      end if
 
       ! Close the file for serial writing
       call sp % file_close()
@@ -385,133 +383,133 @@ contains
 
   subroutine write_tally_results_nr()
 
-    integer :: i      ! loop index
-    integer :: n      ! number of filter bins
-    integer :: m      ! number of score bins
-    integer :: n_bins ! total number of bins
-    real(8), allocatable :: tally_temp(:,:,:) ! contiguous array of results
-    real(8), target :: global_temp(2,N_GLOBAL_TALLIES)
-#ifdef MPI
-    real(8) :: dummy  ! temporary receive buffer for non-root reduces
-#endif
-    type(TallyObject), pointer :: t => null()
-    type(TallyResult), allocatable :: tallyresult_temp(:,:)
-
-    ! ==========================================================================
-    ! COLLECT AND WRITE GLOBAL TALLIES
-
-    if (master) then
-      ! Write number of realizations
-      call sp % write_data(n_realizations, "n_realizations")
-
-      ! Write number of global tallies
-      call sp % write_data(N_GLOBAL_TALLIES, "n_global_tallies")
-    end if
-
-    ! Copy global tallies into temporary array for reducing
-    n_bins = 2 * N_GLOBAL_TALLIES
-    global_temp(1,:) = global_tallies(:) % sum
-    global_temp(2,:) = global_tallies(:) % sum_sq
-
-    if (master) then
-      ! The MPI_IN_PLACE specifier allows the master to copy values into a
-      ! receive buffer without having a temporary variable
-#ifdef MPI
-      call MPI_REDUCE(MPI_IN_PLACE, global_temp, n_bins, MPI_REAL8, MPI_SUM, &
-           0, MPI_COMM_WORLD, mpi_err)
-#endif
-
-      ! Transfer values to value on master
-      if (current_batch == n_batches) then
-        global_tallies(:) % sum    = global_temp(1,:)
-        global_tallies(:) % sum_sq = global_temp(2,:)
-      end if
-
-      ! Put reduced value in temporary tally result
-      allocate(tallyresult_temp(N_GLOBAL_TALLIES, 1))
-      tallyresult_temp(:,1) % sum    = global_temp(1,:)
-      tallyresult_temp(:,1) % sum_sq = global_temp(2,:)
-
-
-      ! Write out global tallies sum and sum_sq
-      call sp % write_tally_result(tallyresult_temp, "global_tallies", &
-           n1=N_GLOBAL_TALLIES, n2=1)
-
-      ! Deallocate temporary tally result
-      deallocate(tallyresult_temp)
-    else
-      ! Receive buffer not significant at other processors
-#ifdef MPI
-      call MPI_REDUCE(global_temp, dummy, n_bins, MPI_REAL8, MPI_SUM, &
-           0, MPI_COMM_WORLD, mpi_err)
-#endif
-    end if
-
-    if (tallies_on) then
-      ! Indicate that tallies are on
-      if (master) then
-        call sp % write_data(1, "tallies_present", group="tallies")
-      end if
-
-      ! Write all tally results
-      TALLY_RESULTS: do i = 1, n_tallies
-        t => tallies(i)
-
-        ! Determine size of tally results array
-        m = size(t % results, 1)
-        n = size(t % results, 2)
-        n_bins = m*n*2
-
-        ! Allocate array for storing sums and sums of squares, but
-        ! contiguously in memory for each
-        allocate(tally_temp(2,m,n))
-        tally_temp(1,:,:) = t % results(:,:) % sum
-        tally_temp(2,:,:) = t % results(:,:) % sum_sq
-
-        if (master) then
-          ! The MPI_IN_PLACE specifier allows the master to copy values into
-          ! a receive buffer without having a temporary variable
-#ifdef MPI
-          call MPI_REDUCE(MPI_IN_PLACE, tally_temp, n_bins, MPI_REAL8, &
-               MPI_SUM, 0, MPI_COMM_WORLD, mpi_err)
-#endif
-          ! At the end of the simulation, store the results back in the
-          ! regular TallyResults array
-          if (current_batch == n_batches) then
-            t % results(:,:) % sum = tally_temp(1,:,:)
-            t % results(:,:) % sum_sq = tally_temp(2,:,:)
-          end if
-
-         ! Put in temporary tally result
-         allocate(tallyresult_temp(m,n))
-         tallyresult_temp(:,:) % sum    = tally_temp(1,:,:)
-         tallyresult_temp(:,:) % sum_sq = tally_temp(2,:,:)
-
-         ! Write reduced tally results to file
-          call sp % write_tally_result(t % results, "results", &
-               group="tallies/tally" // to_str(i), n1=m, n2=n)
-
-          ! Deallocate temporary tally result
-          deallocate(tallyresult_temp)
-        else
-          ! Receive buffer not significant at other processors
-#ifdef MPI
-          call MPI_REDUCE(tally_temp, dummy, n_bins, MPI_REAL8, MPI_SUM, &
-               0, MPI_COMM_WORLD, mpi_err)
-#endif
-        end if
-
-        ! Deallocate temporary copy of tally results
-        deallocate(tally_temp)
-      end do TALLY_RESULTS
-    else
-      if (master) then
-        ! Indicate that tallies are off
-        call sp % write_data(0, "tallies_present", group="tallies")
-      end if
-    end if
-
-  end subroutine write_tally_results_nr
+!    integer :: i      ! loop index
+!    integer :: n      ! number of filter bins
+!    integer :: m      ! number of score bins
+!    integer :: n_bins ! total number of bins
+!    real(8), allocatable :: tally_temp(:,:,:) ! contiguous array of results
+!    real(8), target :: global_temp(2,N_GLOBAL_TALLIES)
+!#ifdef MPI
+!    real(8) :: dummy  ! temporary receive buffer for non-root reduces
+!#endif
+!    type(TallyObject), pointer :: t => null()
+!    type(TallyResult), allocatable :: tallyresult_temp(:,:)
+!
+!    ! ==========================================================================
+!    ! COLLECT AND WRITE GLOBAL TALLIES
+!
+!    if (master) then
+!      ! Write number of realizations
+!      call sp % write_data(n_realizations, "n_realizations")
+!
+!      ! Write number of global tallies
+!      call sp % write_data(N_GLOBAL_TALLIES, "n_global_tallies")
+!    end if
+!
+!    ! Copy global tallies into temporary array for reducing
+!    n_bins = 2 * N_GLOBAL_TALLIES
+!    global_temp(1,:) = global_tallies(:) % sum
+!    global_temp(2,:) = global_tallies(:) % sum_sq
+!
+!    if (master) then
+!      ! The MPI_IN_PLACE specifier allows the master to copy values into a
+!      ! receive buffer without having a temporary variable
+!#ifdef MPI
+!      call MPI_REDUCE(MPI_IN_PLACE, global_temp, n_bins, MPI_REAL8, MPI_SUM, &
+!           0, MPI_COMM_WORLD, mpi_err)
+!#endif
+!
+!      ! Transfer values to value on master
+!      if (current_batch == n_batches) then
+!        global_tallies(:) % sum    = global_temp(1,:)
+!        global_tallies(:) % sum_sq = global_temp(2,:)
+!      end if
+!
+!      ! Put reduced value in temporary tally result
+!      allocate(tallyresult_temp(N_GLOBAL_TALLIES, 1))
+!      tallyresult_temp(:,1) % sum    = global_temp(1,:)
+!      tallyresult_temp(:,1) % sum_sq = global_temp(2,:)
+!
+!
+!      ! Write out global tallies sum and sum_sq
+!      call sp % write_tally_result(tallyresult_temp, "global_tallies", &
+!           n1=N_GLOBAL_TALLIES, n2=1)
+!
+!      ! Deallocate temporary tally result
+!      deallocate(tallyresult_temp)
+!    else
+!      ! Receive buffer not significant at other processors
+!#ifdef MPI
+!      call MPI_REDUCE(global_temp, dummy, n_bins, MPI_REAL8, MPI_SUM, &
+!           0, MPI_COMM_WORLD, mpi_err)
+!#endif
+!    end if
+!
+!    if (tallies_on) then
+!      ! Indicate that tallies are on
+!      if (master) then
+!        call sp % write_data(1, "tallies_present", group="tallies")
+!      end if
+!
+!      ! Write all tally results
+!      TALLY_RESULTS: do i = 1, n_tallies
+!        t => tallies(i)
+!
+!        ! Determine size of tally results array
+!        m = size(t % results, 1)
+!        n = size(t % results, 2)
+!        n_bins = m*n*2
+!
+!        ! Allocate array for storing sums and sums of squares, but
+!        ! contiguously in memory for each
+!        allocate(tally_temp(2,m,n))
+!        tally_temp(1,:,:) = t % results(:,:) % sum
+!        tally_temp(2,:,:) = t % results(:,:) % sum_sq
+!
+!        if (master) then
+!          ! The MPI_IN_PLACE specifier allows the master to copy values into
+!          ! a receive buffer without having a temporary variable
+!#ifdef MPI
+!          call MPI_REDUCE(MPI_IN_PLACE, tally_temp, n_bins, MPI_REAL8, &
+!               MPI_SUM, 0, MPI_COMM_WORLD, mpi_err)
+!#endif
+!          ! At the end of the simulation, store the results back in the
+!          ! regular TallyResults array
+!          if (current_batch == n_batches) then
+!            t % results(:,:) % sum = tally_temp(1,:,:)
+!            t % results(:,:) % sum_sq = tally_temp(2,:,:)
+!          end if
+!
+!         ! Put in temporary tally result
+!         allocate(tallyresult_temp(m,n))
+!         tallyresult_temp(:,:) % sum    = tally_temp(1,:,:)
+!         tallyresult_temp(:,:) % sum_sq = tally_temp(2,:,:)
+!
+!         ! Write reduced tally results to file
+!          call sp % write_tally_result(t % results, "results", &
+!               group="tallies/tally" // to_str(i), n1=m, n2=n)
+!
+!          ! Deallocate temporary tally result
+!          deallocate(tallyresult_temp)
+!        else
+!          ! Receive buffer not significant at other processors
+!#ifdef MPI
+!          call MPI_REDUCE(tally_temp, dummy, n_bins, MPI_REAL8, MPI_SUM, &
+!               0, MPI_COMM_WORLD, mpi_err)
+!#endif
+!        end if
+!
+!        ! Deallocate temporary copy of tally results
+!        deallocate(tally_temp)
+!      end do TALLY_RESULTS
+!    else
+!      if (master) then
+!        ! Indicate that tallies are off
+!        call sp % write_data(0, "tallies_present", group="tallies")
+!      end if
+!    end if
+!
+   end subroutine write_tally_results_nr
 
 !===============================================================================
 ! LOAD_STATE_POINT
@@ -528,7 +526,6 @@ contains
     integer, allocatable    :: temp_array(:)
     logical                 :: source_present
     real(8)                 :: real_array(3)
-    type(TallyObject), pointer :: t => null()
 
     ! Write message
     message = "Loading state point " // trim(path_state_point) // "..."
@@ -646,90 +643,90 @@ contains
     call sp % read_data(n_tallies, "n_tallies", group="tallies")
 
     ! Read in tally metadata
-    TALLY_METADATA: do i = 1, n_tallies
-
-      ! Get pointer to tally
-      t => tallies(i)
-
-      ! Read tally id
-      call sp % read_data(t % id, "id", group="tallies/tally" // to_str(i))
-
-      ! Read number of realizations
-      call sp % read_data(t % n_realizations, "n_realizations", &
-           group="tallies/tally" // to_str(i))
-
-      ! Read size of tally results
-      call sp % read_data(int_array(1), "total_score_bins", &
-           group="tallies/tally" // to_str(i))
-      call sp % read_data(int_array(2), "total_filter_bins", &
-           group="tallies/tally" // to_str(i))
-
-      ! Check size of tally results array
-      if (int_array(1) /= t % total_score_bins .and. &
-          int_array(2) /= t % total_filter_bins) then
-        message = "Input file tally structure is different from restart."
-        call fatal_error(message)
-      end if
-
-      ! Read number of filters
-      call sp % read_data(t % n_filters, "n_filters", &
-           group="tallies/tally" // to_str(i))
-
-      ! Read filter information
-      FILTER_LOOP: do j = 1, t % n_filters
-
-        ! Read type of filter
-        call sp % read_data(t % filters(j) % type, "type", &
-             group="tallies/tally" // trim(to_str(i)) // "/filter" // to_str(j))
-
-        ! Read number of bins for this filter
-        call sp % read_data(t % filters(j) % n_bins, "n_bins", &
-             group="tallies/tally" // trim(to_str(i)) // "/filter" // to_str(j))
-
-        ! Read bins
-        if (t % filters(j) % type == FILTER_ENERGYIN .or. &
-            t % filters(j) % type == FILTER_ENERGYOUT) then
-          call sp % read_data(t % filters(j) % real_bins, "bins", &
-               group="tallies/tally" // trim(to_str(i)) // "/filter" // to_str(j), &
-               length=size(t % filters(j) % real_bins))
-        else
-          call sp % read_data(t % filters(j) % int_bins, "bins", &
-               group="tallies/tally" // trim(to_str(i)) // "/filter" // to_str(j), &
-               length=size(t % filters(j) % int_bins))
-        end if
-
-      end do FILTER_LOOP
-
-      ! Read number of nuclide bins
-      call sp % read_data(t % n_nuclide_bins, "n_nuclide_bins", &
-           group="tallies/tally" // to_str(i))
-
-      ! Set up nuclide bin array and then write
-      allocate(temp_array(t % n_nuclide_bins))
-      call sp % read_data(temp_array, "nuclide_bins", &
-           group="tallies/tally" // to_str(i), length=t % n_nuclide_bins)
-      NUCLIDE_LOOP: do j = 1, t % n_nuclide_bins
-        if (temp_array(j) > 0) then
-          nuclides(t % nuclide_bins(j)) % zaid = temp_array(j)
-        else
-          t % nuclide_bins(j) = temp_array(j)
-        end if
-      end do NUCLIDE_LOOP
-      deallocate(temp_array)
-
-      ! Write number of score bins, score bins, and scatt order
-      call sp % read_data(t % n_score_bins, "n_score_bins", &
-           group="tallies/tally" // to_str(i))
-      call sp % read_data(t % score_bins, "score_bins", &
-           group="tallies/tally" // to_str(i), length=t % n_score_bins)
-      call sp % read_data(t % moment_order, "moment_order", &
-           group="tallies/tally" // to_str(i), length=t % n_score_bins)
-
-      ! Write number of user score bins
-      call sp % read_data(t % n_user_score_bins, "n_user_score_bins", &
-           group="tallies/tally" // to_str(i))
-
-    end do TALLY_METADATA
+!    TALLY_METADATA: do i = 1, n_tallies
+!
+!      ! Get pointer to tally
+!      t => tallies(i)
+!
+!      ! Read tally id
+!      call sp % read_data(t % id, "id", group="tallies/tally" // to_str(i))
+!
+!      ! Read number of realizations
+!      call sp % read_data(t % n_realizations, "n_realizations", &
+!           group="tallies/tally" // to_str(i))
+!
+!      ! Read size of tally results
+!      call sp % read_data(int_array(1), "total_score_bins", &
+!           group="tallies/tally" // to_str(i))
+!      call sp % read_data(int_array(2), "total_filter_bins", &
+!           group="tallies/tally" // to_str(i))
+!
+!      ! Check size of tally results array
+!      if (int_array(1) /= t % total_score_bins .and. &
+!          int_array(2) /= t % total_filter_bins) then
+!        message = "Input file tally structure is different from restart."
+!        call fatal_error(message)
+!      end if
+!
+!      ! Read number of filters
+!      call sp % read_data(t % n_filters, "n_filters", &
+!           group="tallies/tally" // to_str(i))
+!
+!      ! Read filter information
+!      FILTER_LOOP: do j = 1, t % n_filters
+!
+!        ! Read type of filter
+!        call sp % read_data(t % filters(j) % type, "type", &
+!             group="tallies/tally" // trim(to_str(i)) // "/filter" // to_str(j))
+!
+!        ! Read number of bins for this filter
+!        call sp % read_data(t % filters(j) % n_bins, "n_bins", &
+!             group="tallies/tally" // trim(to_str(i)) // "/filter" // to_str(j))
+!
+!        ! Read bins
+!        if (t % filters(j) % type == FILTER_ENERGYIN .or. &
+!            t % filters(j) % type == FILTER_ENERGYOUT) then
+!          call sp % read_data(t % filters(j) % real_bins, "bins", &
+!               group="tallies/tally" // trim(to_str(i)) // "/filter" // to_str(j), &
+!               length=size(t % filters(j) % real_bins))
+!        else
+!          call sp % read_data(t % filters(j) % int_bins, "bins", &
+!               group="tallies/tally" // trim(to_str(i)) // "/filter" // to_str(j), &
+!               length=size(t % filters(j) % int_bins))
+!        end if
+!
+!      end do FILTER_LOOP
+!
+!      ! Read number of nuclide bins
+!      call sp % read_data(t % n_nuclide_bins, "n_nuclide_bins", &
+!           group="tallies/tally" // to_str(i))
+!
+!      ! Set up nuclide bin array and then write
+!      allocate(temp_array(t % n_nuclide_bins))
+!      call sp % read_data(temp_array, "nuclide_bins", &
+!           group="tallies/tally" // to_str(i), length=t % n_nuclide_bins)
+!      NUCLIDE_LOOP: do j = 1, t % n_nuclide_bins
+!        if (temp_array(j) > 0) then
+!          nuclides(t % nuclide_bins(j)) % zaid = temp_array(j)
+!        else
+!          t % nuclide_bins(j) = temp_array(j)
+!        end if
+!      end do NUCLIDE_LOOP
+!      deallocate(temp_array)
+!
+!      ! Write number of score bins, score bins, and scatt order
+!      call sp % read_data(t % n_score_bins, "n_score_bins", &
+!           group="tallies/tally" // to_str(i))
+!      call sp % read_data(t % score_bins, "score_bins", &
+!           group="tallies/tally" // to_str(i), length=t % n_score_bins)
+!      call sp % read_data(t % moment_order, "moment_order", &
+!           group="tallies/tally" // to_str(i), length=t % n_score_bins)
+!
+!      ! Write number of user score bins
+!      call sp % read_data(t % n_user_score_bins, "n_user_score_bins", &
+!           group="tallies/tally" // to_str(i))
+!
+!    end do TALLY_METADATA
 
     ! Check for source in statepoint if needed
     call sp % read_data(int_array(1), "source_present")
@@ -746,40 +743,40 @@ contains
     end if
 
     ! Read tallies to master
-    if (master) then
-
-      ! Read number of realizations for global tallies
-      call sp % read_data(n_realizations, "n_realizations", collect=.false.)
-
-      ! Read number of global tallies
-      call sp % read_data(int_array(1), "n_global_tallies", collect=.false.)
-      if (int_array(1) /= N_GLOBAL_TALLIES) then
-        message = "Number of global tallies does not match in state point."
-        call fatal_error(message)
-      end if
-
-      ! Read global tally data
-      call sp % read_tally_result(global_tallies, "global_tallies", &
-           n1=N_GLOBAL_TALLIES, n2=1)
-
-      ! Check if tally results are present
-      call sp % read_data(int_array(1), "tallies_present", group="tallies", collect=.false.)
-
-      ! Read in sum and sum squared
-      if (int_array(1) == 1) then
-        TALLY_RESULTS: do i = 1, n_tallies
-
-          ! Set pointer to tally
-          t => tallies(i)
-
-          ! Read sum and sum_sq for each bin
-          call sp % read_tally_result(t % results, "results", &
-               group="tallies/tally" // to_str(i), &
-               n1=size(t % results, 1), n2=size(t % results, 2))
-
-        end do TALLY_RESULTS
-      end if
-    end if
+!    if (master) then
+!
+!      ! Read number of realizations for global tallies
+!      call sp % read_data(n_realizations, "n_realizations", collect=.false.)
+!
+!      ! Read number of global tallies
+!      call sp % read_data(int_array(1), "n_global_tallies", collect=.false.)
+!      if (int_array(1) /= N_GLOBAL_TALLIES) then
+!        message = "Number of global tallies does not match in state point."
+!        call fatal_error(message)
+!      end if
+!
+!      ! Read global tally data
+!      call sp % read_tally_result(global_tallies, "global_tallies", &
+!           n1=N_GLOBAL_TALLIES, n2=1)
+!
+!      ! Check if tally results are present
+!      call sp % read_data(int_array(1), "tallies_present", group="tallies", collect=.false.)
+!
+!      ! Read in sum and sum squared
+!      if (int_array(1) == 1) then
+!        TALLY_RESULTS: do i = 1, n_tallies
+!
+!          ! Set pointer to tally
+!          t => tallies(i)
+!
+!          ! Read sum and sum_sq for each bin
+!          call sp % read_tally_result(t % results, "results", &
+!               group="tallies/tally" // to_str(i), &
+!               n1=size(t % results, 1), n2=size(t % results, 2))
+!
+!        end do TALLY_RESULTS
+!      end if
+!    end if
 
     ! Read source if in eigenvalue mode
     if (run_mode == MODE_EIGENVALUE) then

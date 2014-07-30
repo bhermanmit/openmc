@@ -260,323 +260,321 @@ contains
     use error,            only: fatal_error, warning
     use mesh_header,      only: StructuredMesh
     use string
-    use tally,            only: setup_active_cmfdtallies
-    use tally_header,     only: TallyObject, TallyFilter
     use tally_initialize, only: add_tallies
     use xml_interface
 
     type(Node), pointer :: doc ! pointer to XML doc info
 
-    character(MAX_LINE_LEN) :: temp_str ! temp string
-    integer :: i           ! loop counter
-    integer :: n           ! size of arrays in mesh specification
-    integer :: ng          ! number of energy groups (default 1)
-    integer :: n_filters   ! number of filters
-    integer :: i_filter_mesh ! index for mesh filter
-    integer :: iarray3(3) ! temp integer array
-    real(8) :: rarray3(3) ! temp double array
-    type(TallyObject),    pointer :: t => null()
-    type(StructuredMesh), pointer :: m => null()
-    type(TallyFilter) :: filters(N_FILTER_TYPES) ! temporary filters
-    type(Node), pointer :: node_mesh => null()
-
-    ! Set global variables if they are 0 (this can happen if there is no tally
-    ! file)
-    if (n_meshes == 0) n_meshes = n_user_meshes + n_cmfd_meshes
-
-    ! Allocate mesh
-    if (.not. allocated(meshes)) allocate(meshes(n_meshes))
-    m => meshes(n_user_meshes+1)
-
-    ! Set mesh id
-    m % id = n_user_meshes + 1
-
-    ! Set mesh type to rectangular
-    m % type = LATTICE_RECT
-
-    ! Get pointer to mesh XML node
-    call get_node_ptr(doc, "mesh", node_mesh)
-
-    ! Determine number of dimensions for mesh
-    n = get_arraysize_integer(node_mesh, "dimension")
-    if (n /= 2 .and. n /= 3) then
-       message = "Mesh must be two or three dimensions."
-       call fatal_error(message)
-    end if
-    m % n_dimension = n
-
-    ! Allocate attribute arrays
-    allocate(m % dimension(n))
-    allocate(m % lower_left(n))
-    allocate(m % width(n))
-    allocate(m % upper_right(n))
-
-    ! Check that dimensions are all greater than zero
-    call get_node_array(node_mesh, "dimension", iarray3(1:n))
-    if (any(iarray3(1:n) <= 0)) then
-      message = "All entries on the <dimension> element for a tally mesh &
-           &must be positive."
-      call fatal_error(message)
-    end if
-
-    ! Read dimensions in each direction
-    m % dimension = iarray3(1:n)
-
-    ! Read mesh lower-left corner location
-    if (m % n_dimension /= get_arraysize_double(node_mesh, "lower_left")) then
-      message = "Number of entries on <lower_left> must be the same as &
-           &the number of entries on <dimension>."
-      call fatal_error(message)
-    end if
-    call get_node_array(node_mesh, "lower_left", m % lower_left)
-
-    ! Make sure both upper-right or width were specified
-    if (check_for_node(node_mesh, "upper_right") .and. &
-        check_for_node(node_mesh, "width")) then
-      message = "Cannot specify both <upper_right> and <width> on a &
-           &tally mesh."
-      call fatal_error(message)
-    end if
-
-    ! Make sure either upper-right or width was specified
-    if (.not.check_for_node(node_mesh, "upper_right") .and. &
-        .not.check_for_node(node_mesh, "width")) then
-      message = "Must specify either <upper_right> and <width> on a &
-           &tally mesh."
-      call fatal_error(message)
-    end if
-
-    if (check_for_node(node_mesh, "width")) then
-      ! Check to ensure width has same dimensions
-      if (get_arraysize_double(node_mesh, "width") /= &
-          get_arraysize_double(node_mesh, "lower_left")) then
-        message = "Number of entries on <width> must be the same as the &
-             &number of entries on <lower_left>."
-        call fatal_error(message)
-      end if
-
-      ! Check for negative widths
-      call get_node_array(node_mesh, "width", rarray3(1:n))
-      if (any(rarray3(1:n) < ZERO)) then
-        message = "Cannot have a negative <width> on a tally mesh."
-        call fatal_error(message)
-      end if
-
-      ! Set width and upper right coordinate
-      m % width = rarray3(1:n)
-      m % upper_right = m % lower_left + m % dimension * m % width
-
-    elseif (check_for_node(node_mesh, "upper_right")) then
-      ! Check to ensure width has same dimensions
-      if (get_arraysize_double(node_mesh, "upper_right") /= &
-          get_arraysize_double(node_mesh, "lower_left")) then
-        message = "Number of entries on <upper_right> must be the same as &
-             &the number of entries on <lower_left>."
-        call fatal_error(message)
-      end if
-
-      ! Check that upper-right is above lower-left
-      call get_node_array(node_mesh, "upper_right", rarray3(1:n))
-      if (any(rarray3(1:n) < m % lower_left)) then
-        message = "The <upper_right> coordinates must be greater than the &
-             &<lower_left> coordinates on a tally mesh."
-        call fatal_error(message)
-      end if
-
-      ! Set upper right coordinate and width
-      m % upper_right = rarray3(1:n)
-      m % width = (m % upper_right - m % lower_left) / real(m % dimension, 8)
-    end if
-
-    ! Set volume fraction
-    m % volume_frac = ONE/real(product(m % dimension),8)
-
-    ! Add mesh to dictionary
-    call mesh_dict % add_key(m % id, n_user_meshes + 1)
-
-    ! Allocate tallies
-    call add_tallies("cmfd", n_cmfd_tallies)
-
-    ! Begin loop around tallies
-    do i = 1, n_cmfd_tallies
-
-      ! Point t to tally variable
-      t => cmfd_tallies(i)
-
-      ! Set reset property
-      if (check_for_node(doc, "reset")) then
-        call get_node_value(doc, "reset", temp_str)
-        call lower_case(temp_str)
-        if (trim(temp_str) == 'true' .or. trim(temp_str) == '1') &
-          t % reset = .true.
-      end if
-
-      ! Set up mesh filter
-      n_filters = 1
-      filters(n_filters) % type = FILTER_MESH
-      filters(n_filters) % n_bins = product(m % dimension)
-      allocate(filters(n_filters) % int_bins(1))
-      filters(n_filters) % int_bins(1) = n_user_meshes + 1
-      t % find_filter(FILTER_MESH) = n_filters
-
-      ! Read and set incoming energy mesh filter
-      if (check_for_node(node_mesh, "energy")) then
-        n_filters = n_filters + 1
-        filters(n_filters) % type = FILTER_ENERGYIN
-        ng = get_arraysize_double(node_mesh, "energy")
-        filters(n_filters) % n_bins = ng - 1
-        allocate(filters(n_filters) % real_bins(ng))
-        call get_node_array(node_mesh, "energy", &
-             filters(n_filters) % real_bins)
-        t % find_filter(FILTER_ENERGYIN) = n_filters
-      end if
-
-      ! Set number of nucilde bins
-      allocate(t % nuclide_bins(1))
-      t % nuclide_bins(1) = -1
-      t % n_nuclide_bins = 1
-
-      ! Record tally id which is equivalent to loop number
-      t % id = i_cmfd_tallies + i
-
-      if (i == 1) then
-
-        ! Set label
-        t % label = "CMFD flux, total, scatter-1"
-
-        ! Set tally estimator to analog
-        t % estimator = ESTIMATOR_ANALOG
-
-        ! Set tally type to volume
-        t % type = TALLY_VOLUME
-
-        ! Allocate and set filters
-        t % n_filters = n_filters
-        allocate(t % filters(n_filters))
-        t % filters = filters(1:n_filters)
-
-        ! Allocate scoring bins
-        allocate(t % score_bins(3))
-        t % n_score_bins = 3
-        t % n_user_score_bins = 3
-
-        ! Allocate scattering order data
-        allocate(t % moment_order(3))
-        t % moment_order = 0
-
-        ! Set macro_bins
-        t % score_bins(1)  = SCORE_FLUX
-        t % score_bins(2)  = SCORE_TOTAL
-        t % score_bins(3)  = SCORE_SCATTER_N
-        t % moment_order(3) = 1
-
-      else if (i == 2) then
-
-        ! Set label
-        t % label = "CMFD neutron production"
-
-        ! Set tally estimator to analog
-        t % estimator = ESTIMATOR_ANALOG
-
-        ! Set tally type to volume
-        t % type = TALLY_VOLUME
-
-        ! read and set outgoing energy mesh filter
-        if (check_for_node(node_mesh, "energy")) then
-          n_filters = n_filters + 1
-          filters(n_filters) % type = FILTER_ENERGYOUT
-          ng = get_arraysize_double(node_mesh, "energy")
-          filters(n_filters) % n_bins = ng - 1
-          allocate(filters(n_filters) % real_bins(ng))
-          call get_node_array(node_mesh, "energy", &
-               filters(n_filters) % real_bins)
-          t % find_filter(FILTER_ENERGYOUT) = n_filters
-        end if
-
-        ! Allocate and set filters
-        t % n_filters = n_filters
-        allocate(t % filters(n_filters))
-        t % filters = filters(1:n_filters)
-
-        ! deallocate filters bins array
-        if (check_for_node(node_mesh, "energy")) &
-             deallocate(filters(n_filters) % real_bins)
-
-        ! Allocate macro reactions
-        allocate(t % score_bins(2))
-        t % n_score_bins = 2
-        t % n_user_score_bins = 2
-
-        ! Allocate scattering order data
-        allocate(t % moment_order(2))
-        t % moment_order = 0
-
-        ! Set macro_bins
-        t % score_bins(1) = SCORE_NU_SCATTER
-        t % score_bins(2) = SCORE_NU_FISSION
-
-      else if (i == 3) then
-
-        ! Set label
-        t % label = "CMFD surface currents"
-
-        ! Set tally estimator to analog
-        t % estimator = ESTIMATOR_ANALOG
-
-        ! Add extra filter for surface
-        n_filters = n_filters + 1
-        filters(n_filters) % type = FILTER_SURFACE
-        filters(n_filters) % n_bins = 2 * m % n_dimension
-        allocate(filters(n_filters) % int_bins(2 * m % n_dimension))
-        if (m % n_dimension == 2) then
-          filters(n_filters) % int_bins = (/ IN_RIGHT, OUT_RIGHT, IN_FRONT, &
-               OUT_FRONT /)
-        elseif (m % n_dimension == 3) then
-          filters(n_filters) % int_bins = (/ IN_RIGHT, OUT_RIGHT, IN_FRONT, &
-               OUT_FRONT, IN_TOP, OUT_TOP /)
-        end if
-        t % find_filter(FILTER_SURFACE) = n_filters
-
-        ! Allocate and set filters
-        t % n_filters = n_filters
-        allocate(t % filters(n_filters))
-        t % filters = filters(1:n_filters)
-
-        ! Deallocate filters bins array
-        deallocate(filters(n_filters) % int_bins)
-
-        ! Allocate macro reactions
-        allocate(t % score_bins(1))
-        t % n_score_bins = 1
-        t % n_user_score_bins = 1
-
-        ! Allocate scattering order data
-        allocate(t % moment_order(1))
-        t % moment_order = 0
-
-        ! Set macro bins
-        t % score_bins(1) = SCORE_CURRENT
-        t % type = TALLY_SURFACE_CURRENT
-
-        ! We need to increase the dimension by one since we also need
-        ! currents coming into and out of the boundary mesh cells.
-        i_filter_mesh = t % find_filter(FILTER_MESH)
-        t % filters(i_filter_mesh) % n_bins = product(m % dimension + 1)
-
-      end if
-
-      ! Deallocate filter bins
-      deallocate(filters(1) % int_bins)
-      if (check_for_node(node_mesh, "energy")) &
-        deallocate(filters(2) % real_bins)
-
-    end do
-
-    ! Put cmfd tallies into active tally array and turn tallies on
-!$omp parallel
-    call setup_active_cmfdtallies()
-!$omp end parallel
-    tallies_on = .true.
+!    character(MAX_LINE_LEN) :: temp_str ! temp string
+!    integer :: i           ! loop counter
+!    integer :: n           ! size of arrays in mesh specification
+!    integer :: ng          ! number of energy groups (default 1)
+!    integer :: n_filters   ! number of filters
+!    integer :: i_filter_mesh ! index for mesh filter
+!    integer :: iarray3(3) ! temp integer array
+!    real(8) :: rarray3(3) ! temp double array
+!    type(TallyObject),    pointer :: t => null()
+!    type(StructuredMesh), pointer :: m => null()
+!    type(TallyFilter) :: filters(N_FILTER_TYPES) ! temporary filters
+!    type(Node), pointer :: node_mesh => null()
+!
+!    ! Set global variables if they are 0 (this can happen if there is no tally
+!    ! file)
+!    if (n_meshes == 0) n_meshes = n_user_meshes + n_cmfd_meshes
+!
+!    ! Allocate mesh
+!    if (.not. allocated(meshes)) allocate(meshes(n_meshes))
+!    m => meshes(n_user_meshes+1)
+!
+!    ! Set mesh id
+!    m % id = n_user_meshes + 1
+!
+!    ! Set mesh type to rectangular
+!    m % type = LATTICE_RECT
+!
+!    ! Get pointer to mesh XML node
+!    call get_node_ptr(doc, "mesh", node_mesh)
+!
+!    ! Determine number of dimensions for mesh
+!    n = get_arraysize_integer(node_mesh, "dimension")
+!    if (n /= 2 .and. n /= 3) then
+!       message = "Mesh must be two or three dimensions."
+!       call fatal_error(message)
+!    end if
+!    m % n_dimension = n
+!
+!    ! Allocate attribute arrays
+!    allocate(m % dimension(n))
+!    allocate(m % lower_left(n))
+!    allocate(m % width(n))
+!    allocate(m % upper_right(n))
+!
+!    ! Check that dimensions are all greater than zero
+!    call get_node_array(node_mesh, "dimension", iarray3(1:n))
+!    if (any(iarray3(1:n) <= 0)) then
+!      message = "All entries on the <dimension> element for a tally mesh &
+!           &must be positive."
+!      call fatal_error(message)
+!    end if
+!
+!    ! Read dimensions in each direction
+!    m % dimension = iarray3(1:n)
+!
+!    ! Read mesh lower-left corner location
+!    if (m % n_dimension /= get_arraysize_double(node_mesh, "lower_left")) then
+!      message = "Number of entries on <lower_left> must be the same as &
+!           &the number of entries on <dimension>."
+!      call fatal_error(message)
+!    end if
+!    call get_node_array(node_mesh, "lower_left", m % lower_left)
+!
+!    ! Make sure both upper-right or width were specified
+!    if (check_for_node(node_mesh, "upper_right") .and. &
+!        check_for_node(node_mesh, "width")) then
+!      message = "Cannot specify both <upper_right> and <width> on a &
+!           &tally mesh."
+!      call fatal_error(message)
+!    end if
+!
+!    ! Make sure either upper-right or width was specified
+!    if (.not.check_for_node(node_mesh, "upper_right") .and. &
+!        .not.check_for_node(node_mesh, "width")) then
+!      message = "Must specify either <upper_right> and <width> on a &
+!           &tally mesh."
+!      call fatal_error(message)
+!    end if
+!
+!    if (check_for_node(node_mesh, "width")) then
+!      ! Check to ensure width has same dimensions
+!      if (get_arraysize_double(node_mesh, "width") /= &
+!          get_arraysize_double(node_mesh, "lower_left")) then
+!        message = "Number of entries on <width> must be the same as the &
+!             &number of entries on <lower_left>."
+!        call fatal_error(message)
+!      end if
+!
+!      ! Check for negative widths
+!      call get_node_array(node_mesh, "width", rarray3(1:n))
+!      if (any(rarray3(1:n) < ZERO)) then
+!        message = "Cannot have a negative <width> on a tally mesh."
+!        call fatal_error(message)
+!      end if
+!
+!      ! Set width and upper right coordinate
+!      m % width = rarray3(1:n)
+!      m % upper_right = m % lower_left + m % dimension * m % width
+!
+!    elseif (check_for_node(node_mesh, "upper_right")) then
+!      ! Check to ensure width has same dimensions
+!      if (get_arraysize_double(node_mesh, "upper_right") /= &
+!          get_arraysize_double(node_mesh, "lower_left")) then
+!        message = "Number of entries on <upper_right> must be the same as &
+!             &the number of entries on <lower_left>."
+!        call fatal_error(message)
+!      end if
+!
+!      ! Check that upper-right is above lower-left
+!      call get_node_array(node_mesh, "upper_right", rarray3(1:n))
+!      if (any(rarray3(1:n) < m % lower_left)) then
+!        message = "The <upper_right> coordinates must be greater than the &
+!             &<lower_left> coordinates on a tally mesh."
+!        call fatal_error(message)
+!      end if
+!
+!      ! Set upper right coordinate and width
+!      m % upper_right = rarray3(1:n)
+!      m % width = (m % upper_right - m % lower_left) / real(m % dimension, 8)
+!    end if
+!
+!    ! Set volume fraction
+!    m % volume_frac = ONE/real(product(m % dimension),8)
+!
+!    ! Add mesh to dictionary
+!    call mesh_dict % add_key(m % id, n_user_meshes + 1)
+!
+!    ! Allocate tallies
+!    call add_tallies("cmfd", n_cmfd_tallies)
+!
+!    ! Begin loop around tallies
+!    do i = 1, n_cmfd_tallies
+!
+!      ! Point t to tally variable
+!      t => cmfd_tallies(i)
+!
+!      ! Set reset property
+!      if (check_for_node(doc, "reset")) then
+!        call get_node_value(doc, "reset", temp_str)
+!        call lower_case(temp_str)
+!        if (trim(temp_str) == 'true' .or. trim(temp_str) == '1') &
+!          t % reset = .true.
+!      end if
+!
+!      ! Set up mesh filter
+!      n_filters = 1
+!      filters(n_filters) % type = FILTER_MESH
+!      filters(n_filters) % n_bins = product(m % dimension)
+!      allocate(filters(n_filters) % int_bins(1))
+!      filters(n_filters) % int_bins(1) = n_user_meshes + 1
+!      t % find_filter(FILTER_MESH) = n_filters
+!
+!      ! Read and set incoming energy mesh filter
+!      if (check_for_node(node_mesh, "energy")) then
+!        n_filters = n_filters + 1
+!        filters(n_filters) % type = FILTER_ENERGYIN
+!        ng = get_arraysize_double(node_mesh, "energy")
+!        filters(n_filters) % n_bins = ng - 1
+!        allocate(filters(n_filters) % real_bins(ng))
+!        call get_node_array(node_mesh, "energy", &
+!             filters(n_filters) % real_bins)
+!        t % find_filter(FILTER_ENERGYIN) = n_filters
+!      end if
+!
+!      ! Set number of nucilde bins
+!      allocate(t % nuclide_bins(1))
+!      t % nuclide_bins(1) = -1
+!      t % n_nuclide_bins = 1
+!
+!      ! Record tally id which is equivalent to loop number
+!      t % id = i_cmfd_tallies + i
+!
+!      if (i == 1) then
+!
+!        ! Set label
+!        t % label = "CMFD flux, total, scatter-1"
+!
+!        ! Set tally estimator to analog
+!        t % estimator = ESTIMATOR_ANALOG
+!
+!        ! Set tally type to volume
+!        t % type = TALLY_VOLUME
+!
+!        ! Allocate and set filters
+!        t % n_filters = n_filters
+!        allocate(t % filters(n_filters))
+!        t % filters = filters(1:n_filters)
+!
+!        ! Allocate scoring bins
+!        allocate(t % score_bins(3))
+!        t % n_score_bins = 3
+!        t % n_user_score_bins = 3
+!
+!        ! Allocate scattering order data
+!        allocate(t % moment_order(3))
+!        t % moment_order = 0
+!
+!        ! Set macro_bins
+!        t % score_bins(1)  = SCORE_FLUX
+!        t % score_bins(2)  = SCORE_TOTAL
+!        t % score_bins(3)  = SCORE_SCATTER_N
+!        t % moment_order(3) = 1
+!
+!      else if (i == 2) then
+!
+!        ! Set label
+!        t % label = "CMFD neutron production"
+!
+!        ! Set tally estimator to analog
+!        t % estimator = ESTIMATOR_ANALOG
+!
+!        ! Set tally type to volume
+!        t % type = TALLY_VOLUME
+!
+!        ! read and set outgoing energy mesh filter
+!        if (check_for_node(node_mesh, "energy")) then
+!          n_filters = n_filters + 1
+!          filters(n_filters) % type = FILTER_ENERGYOUT
+!          ng = get_arraysize_double(node_mesh, "energy")
+!          filters(n_filters) % n_bins = ng - 1
+!          allocate(filters(n_filters) % real_bins(ng))
+!          call get_node_array(node_mesh, "energy", &
+!               filters(n_filters) % real_bins)
+!          t % find_filter(FILTER_ENERGYOUT) = n_filters
+!        end if
+!
+!        ! Allocate and set filters
+!        t % n_filters = n_filters
+!        allocate(t % filters(n_filters))
+!        t % filters = filters(1:n_filters)
+!
+!        ! deallocate filters bins array
+!        if (check_for_node(node_mesh, "energy")) &
+!             deallocate(filters(n_filters) % real_bins)
+!
+!        ! Allocate macro reactions
+!        allocate(t % score_bins(2))
+!        t % n_score_bins = 2
+!        t % n_user_score_bins = 2
+!
+!        ! Allocate scattering order data
+!        allocate(t % moment_order(2))
+!        t % moment_order = 0
+!
+!        ! Set macro_bins
+!        t % score_bins(1) = SCORE_NU_SCATTER
+!        t % score_bins(2) = SCORE_NU_FISSION
+!
+!      else if (i == 3) then
+!
+!        ! Set label
+!        t % label = "CMFD surface currents"
+!
+!        ! Set tally estimator to analog
+!        t % estimator = ESTIMATOR_ANALOG
+!
+!        ! Add extra filter for surface
+!        n_filters = n_filters + 1
+!        filters(n_filters) % type = FILTER_SURFACE
+!        filters(n_filters) % n_bins = 2 * m % n_dimension
+!        allocate(filters(n_filters) % int_bins(2 * m % n_dimension))
+!        if (m % n_dimension == 2) then
+!          filters(n_filters) % int_bins = (/ IN_RIGHT, OUT_RIGHT, IN_FRONT, &
+!               OUT_FRONT /)
+!        elseif (m % n_dimension == 3) then
+!          filters(n_filters) % int_bins = (/ IN_RIGHT, OUT_RIGHT, IN_FRONT, &
+!               OUT_FRONT, IN_TOP, OUT_TOP /)
+!        end if
+!        t % find_filter(FILTER_SURFACE) = n_filters
+!
+!        ! Allocate and set filters
+!        t % n_filters = n_filters
+!        allocate(t % filters(n_filters))
+!        t % filters = filters(1:n_filters)
+!
+!        ! Deallocate filters bins array
+!        deallocate(filters(n_filters) % int_bins)
+!
+!        ! Allocate macro reactions
+!        allocate(t % score_bins(1))
+!        t % n_score_bins = 1
+!        t % n_user_score_bins = 1
+!
+!        ! Allocate scattering order data
+!        allocate(t % moment_order(1))
+!        t % moment_order = 0
+!
+!        ! Set macro bins
+!        t % score_bins(1) = SCORE_CURRENT
+!        t % type = TALLY_SURFACE_CURRENT
+!
+!        ! We need to increase the dimension by one since we also need
+!        ! currents coming into and out of the boundary mesh cells.
+!        i_filter_mesh = t % find_filter(FILTER_MESH)
+!        t % filters(i_filter_mesh) % n_bins = product(m % dimension + 1)
+!
+!      end if
+!
+!      ! Deallocate filter bins
+!      deallocate(filters(1) % int_bins)
+!      if (check_for_node(node_mesh, "energy")) &
+!        deallocate(filters(2) % real_bins)
+!
+!    end do
+!
+!    ! Put cmfd tallies into active tally array and turn tallies on
+!!$omp parallel
+!    call setup_active_cmfdtallies()
+!!$omp end parallel
+!    tallies_on = .true.
 
   end subroutine create_cmfd_tally
 
