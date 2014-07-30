@@ -26,7 +26,7 @@ module tally_class
     integer :: n_realizations = ZERO ! Number of tally realizations
     integer :: n_scores = ZERO ! Number of scores
     integer :: total_score_bins = ZERO ! Total number of score bins
-    integer :: total_filter_bins = ZERO ! Total number of filter bins
+    integer :: total_filter_bins = ONE ! Total number of filter bins
     integer :: find_filter(N_FILTER_TYPES)
     integer, allocatable :: stride(:)
     integer, allocatable :: matching_bins(:)
@@ -255,7 +255,7 @@ module tally_class
 
     ! Set total number of filter bins and scores
     do i = 1, self % n_filters 
-      self % total_filter_bins = self % total_filter_bins + &
+      self % total_filter_bins = self % total_filter_bins * &
                                  self % filters(i) % p % get_n_bins()
     end do 
     self % total_score_bins = self % n_scores
@@ -460,8 +460,7 @@ module tally_class
     real(8) :: score
 
     ! Loop around particles in bank
-    do k = p % n_bank + 1, &
-      min(p % n_bank + int(p % nu,8), int(size(p % fission_bank),8))
+    do k = p % n_bank - p % nu + 1, p % n_bank
 
       ! Check to create particle
       if (.not. associated(p_fiss)) allocate(p_fiss)
