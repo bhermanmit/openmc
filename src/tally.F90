@@ -123,9 +123,13 @@ module tally
 
     integer :: i
 
+    ! All tallies
     do i = 1, n_user_tallies
       call tallies(i) % p % statistics
     end do
+
+    ! Global tallies
+    call global_tallies % statistics(n_realizations)
 
   end subroutine tally_statistics
 
