@@ -10,6 +10,7 @@ module random_lcg
   integer, parameter :: STREAM_TRACKING = 1
   integer, parameter :: STREAM_TALLIES  = 2
 
+  integer(8), public :: seed = 1_8 ! starting seed from user
   integer(8) :: prn_seed0  ! original seed
   integer(8) :: prn_seed(N_STREAMS) ! current seed
   integer(8) :: prn_mult   ! multiplication factor, g
@@ -58,8 +59,6 @@ contains
 !===============================================================================
 
   subroutine initialize_prng()
-
-    use global, only: seed
 
     integer :: i
 

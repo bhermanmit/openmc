@@ -410,7 +410,7 @@ contains
 
   subroutine cmfd_tally_reset()
 
-    use output,  only: write_message
+    use error,  only: write_message
     use tally,   only: reset_result
 
     integer :: i ! loop counter

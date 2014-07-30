@@ -3,15 +3,14 @@ module physics
   use ace_header,             only: Nuclide, Reaction, DistEnergy, SAlphaBeta
   use constants
   use endf,                   only: reaction_name
-  use error,                  only: fatal_error, warning
+  use error,                  only: fatal_error, warning, write_message
   use fission,                only: nu_total, nu_delayed
   use interpolation,          only: interpolate_tab1
   use material_header,        only: Material
   use math,                   only: maxwell_spectrum, watt_spectrum
   use mesh,                   only: get_mesh_indices
-  use output,                 only: write_message
   use particle_header,        only: Particle
-  use particle_restart_write, only: write_particle_restart
+! use particle_restart_write, only: write_particle_restart
   use random_lcg,             only: prn
   use search,                 only: binary_search
   use string,                 only: to_str
@@ -158,7 +157,7 @@ contains
 
       ! Check to make sure that a nuclide was sampled
       if (i > mat % n_nuclides) then
-        call write_particle_restart(p)
+!       call write_particle_restart(p)
         message = "Did not sample any nuclide during collision."
         call fatal_error(message)
       end if
@@ -368,7 +367,7 @@ contains
 
         ! Check to make sure inelastic scattering reaction sampled
         if (i > nuc % n_reaction) then
-          call write_particle_restart(p)
+!         call write_particle_restart(p)
           message = "Did not sample any reaction for nuclide " // &
                trim(nuc % name)
           call fatal_error(message)

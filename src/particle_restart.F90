@@ -4,9 +4,10 @@ module particle_restart
 
   use bank_header,      only: Bank
   use constants
+  use error,            only: write_message
   use geometry_header,  only: BASE_UNIVERSE
   use global
-  use output,           only: write_message, print_particle
+  use output,           only: print_particle
   use output_interface, only: BinaryOutput
   use particle_header,  only: Particle
   use random_lcg,       only: set_particle_seed

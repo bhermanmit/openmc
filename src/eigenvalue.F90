@@ -6,12 +6,12 @@ module eigenvalue
 
   use cmfd_execute, only: cmfd_init_batch, execute_cmfd
   use constants,    only: ZERO
-  use error,        only: fatal_error, warning
+  use error,        only: fatal_error, warning, write_message
   use global
   use math,         only: t_percentile
   use mesh,         only: count_bank_sites
   use mesh_header,  only: StructuredMesh
-  use output,       only: write_message, header, print_columns,              &
+  use output,       only: header, print_columns,              &
                           print_batch_keff, print_generation
   use particle_header, only: Particle
   use random_lcg,   only: prn, set_particle_seed, prn_skip

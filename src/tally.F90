@@ -602,12 +602,12 @@ contains
     ! of all nu-fission rates would be ~1.0.
 
     ! loop over number of particles banked
-    do k = 1, p % n_bank
+    do k = 1, p % nu
       ! determine score based on bank site weight and keff
-      score = keff * fission_bank(n_bank - p % n_bank + k) % wgt
+      score = keff * fission_bank(n_bank - p % nu + k) % wgt
 
       ! determine outgoing energy from fission bank
-      E_out = fission_bank(n_bank - p % n_bank + k) % E
+      E_out = fission_bank(n_bank - p % nu + k) % E
 
       ! check if outgoing energy is within specified range on filter
       if (E_out < t % filters(i) % real_bins(1) .or. &

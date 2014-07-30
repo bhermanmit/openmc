@@ -1,8 +1,9 @@
 module fixed_source
 
   use constants,       only: ZERO
+  use error,           only: write_message
   use global
-  use output,          only: write_message, header
+  use output,          only: header
   use particle_header, only: Particle
   use random_lcg,      only: set_particle_seed
   use source,          only: sample_external_source, copy_source_attributes

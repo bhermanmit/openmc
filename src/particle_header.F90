@@ -165,7 +165,10 @@ contains
   end subroutine initialize_particle
 
 !===============================================================================
-! COPY_PARTICLE currently only copies what is necessary for physics sampling
+! COPY_PARTICLE copies all particle attributes, however uses pointers
+! that associate to pointers in Particle. Therefore, do not use clear_particle
+! when finished. This is currently used in tallies when performing fake
+! collisions. 
 !===============================================================================
 
   subroutine copy_particle(this, p)
@@ -174,12 +177,27 @@ contains
     class(Particle), intent(in) :: p
 
     ! Copy attributes 
-    this % coord0 % xyz = p % coord0 % xyz
-    this % coord0 % uvw = p % coord0 % uvw
+    this % id = p % id
+    this % type = p % type
+    this % coord0 => p % coord0
+    this % coord => p % coord
     this % wgt = p % wgt
     this % E = p % E
+    this % mu = p % mu
+    this % alive = p % alive
+    this % last_xyz = p % last_xyz
+    this % last_uvw = p % last_uvw
+    this % last_wgt = p % last_wgt
     this % last_E = p % last_E
+    this % dist => p % dist
+    this % material_xs => p % material_xs
+    this % micro_xs => p % micro_xs
+    this % nuclides => p % nuclides
+    this % sab_tables => p % sab_tables
+    this % surface = p % surface
+    this % cell_born = p % cell_born
     this % material => p % material
+    this % last_material => p % last_material
 
   end subroutine copy_particle
 

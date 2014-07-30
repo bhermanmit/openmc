@@ -61,9 +61,8 @@ contains
 
   subroutine read_cmfd_xml()
 
-    use error,   only: fatal_error, warning
+    use error,   only: fatal_error, warning, write_message
     use global
-    use output,  only: write_message
     use string,  only: lower_case
     use xml_interface
     use, intrinsic :: ISO_FORTRAN_ENV

@@ -1,10 +1,9 @@
 module geometry
 
   use constants
-  use error,                  only: fatal_error, warning
+  use error,                  only: fatal_error, warning, write_message
   use geometry_header,        only: Cell, Surface, Universe, Lattice
   use global
-  use output,                 only: write_message
   use particle_header,        only: LocalCoord, deallocate_coord, Particle
   use particle_restart_write, only: write_particle_restart
   use string,                 only: to_str

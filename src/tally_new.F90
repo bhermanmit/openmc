@@ -1,8 +1,7 @@
 module tally_new
 
-  use error,              only: fatal_error, warning
+  use error,              only: fatal_error, warning, write_message
   use global
-  use output,             only: write_message
   use particle_header,    only: Particle
   use string,             only: lower_case
   use tally_class
@@ -44,7 +43,7 @@ module tally_new
     type(NodeList), pointer :: node_tal_list => null()
 
     ! Check if tallies.xml exists
-    filename = trim(path_input) // "tallies.xml"
+    filename = trim(path_input) // "tallies_new.xml"
     inquire(FILE=filename, EXIST=file_exists)
     if (.not. file_exists) then
       ! Since a tallies.xml file is optional, no error is issued here

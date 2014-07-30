@@ -13,11 +13,12 @@ module state_point
 
 
   use constants
-  use error,              only: fatal_error, warning
+  use error,              only: fatal_error, warning, write_message
   use global
-  use output,             only: write_message, time_stamp
+  use output,             only: time_stamp
   use string,             only: to_str
   use output_interface
+  use random_lcg,         only: seed
   use tally_header,       only: TallyObject
 
 #ifdef MPI

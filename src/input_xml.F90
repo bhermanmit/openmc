@@ -3,14 +3,13 @@ module input_xml
   use cmfd_input,       only: configure_cmfd
   use constants
   use dict_header,      only: DictIntInt, ElemKeyValueCI
-  use error,            only: fatal_error, warning
+  use error,            only: fatal_error, warning, write_message
   use geometry_header,  only: Cell, Surface, Lattice
   use global
   use list_header,      only: ListChar, ListReal
   use mesh_header,      only: StructuredMesh
-  use output,           only: write_message
   use plot_header
-  use random_lcg,       only: prn
+  use random_lcg,       only: prn, seed
   use string,           only: lower_case, to_str, str_to_int, str_to_real, &
                               starts_with, ends_with
   use tally_new,        only: read_tallies_new

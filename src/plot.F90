@@ -1,11 +1,10 @@
 module plot
 
   use constants
-  use error,           only: fatal_error
+  use error,           only: fatal_error, write_message
   use geometry,        only: find_cell, check_cell_overlap
   use geometry_header, only: Cell, BASE_UNIVERSE
   use global
-  use output,          only: write_message
   use particle_header, only: deallocate_coord, Particle
   use plot_header
   use ppmlib,          only: Image, init_image, allocate_image, &

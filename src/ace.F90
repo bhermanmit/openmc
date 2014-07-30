@@ -4,11 +4,10 @@ module ace
                               DistEnergy
   use constants
   use endf,             only: reaction_name
-  use error,            only: fatal_error, warning
+  use error,            only: fatal_error, warning, write_message
   use fission,          only: nu_total
   use global
   use material_header,  only: Material
-  use output,           only: write_message
   use set_header,       only: SetChar
   use string,           only: to_str
 

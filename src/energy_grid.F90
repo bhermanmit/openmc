@@ -1,9 +1,9 @@
 module energy_grid
 
   use constants,        only: MAX_LINE_LEN
+  use error,            only: write_message
   use global
   use list_header,      only: ListReal
-  use output,           only: write_message
 
   character(2*MAX_LINE_LEN) :: message                                      
 

@@ -1,8 +1,12 @@
 module tally_class
 
+  use ace_header,         only: Nuclide, Reaction
   use constants
   use particle_header
-  use physics, only: sample_nuclide, sample_fission, sample_fission_energy
+  use physics,            only: sample_nuclide, sample_fission, &
+                                sample_fission_energy
+  use random_lcg,         only: prn_set_stream, STREAM_TRACKING, &
+                                STREAM_TALLIES
   use tally_filter_class 
   use tally_result_class
   use tally_score_class 
@@ -58,7 +62,7 @@ module tally_class
       import TallyClass
       import Particle
       class(TallyClass), intent(inout) :: self
-      type(Particle), intent(in) :: p
+      type(Particle), target, intent(in) :: p
     end subroutine score_interface
   end interface
 
@@ -489,8 +493,8 @@ module tally_class
 
   subroutine analog_tally_score(self, p)
 
-    class(AnalogTallyClass) :: self
-    type(Particle) :: p
+    class(AnalogTallyClass), intent(inout) :: self
+    type(Particle), target, intent(in) :: p
 
     integer :: filter_index
     integer :: j
@@ -584,8 +588,8 @@ module tally_class
 
   subroutine tracklength_tally_score(self, p)
 
-    class(TracklengthTallyClass) :: self
-    type(Particle) :: p
+    class(TracklengthTallyClass), intent(inout) :: self
+    type(Particle), target, intent(in) :: p
 
     integer :: bin ! mesh bin
     integer :: filter_index
@@ -598,32 +602,43 @@ module tally_class
     real(8) :: response ! tally response
     real(8) :: weight ! some form of a neutron statistical weight
     type(Particle), pointer :: p_fiss => null()
+    type(Particle), pointer :: p_score => null()
 
     ! Loop around score bins
     SCORE_LOOP: do j = 1, self % n_scores
 
-      ! Special cases
-      select type (s => self % scores(j) % p)
+      ! Set scoring particle to be the actual particle
+      p_score => p
 
-      type is (NuFissionScoreClass)
+      ! Special cases for enery out filter
+      if (self % has_eout_filter) then
+        select type (s => self % scores(j) % p)
 
-        ! Check to see if we need to sample a fission reaction
-        if (.not. associated(p_fiss)) p_fiss = sample_fake_fission(p)
+        type is (NuFissionScoreClass)
 
-      end select 
+          ! If no fission macro, don't score
+          if (p % material_xs % fission == ZERO) cycle
+
+          ! Check to see if we need to sample a fission reaction
+          if (.not. associated(p_fiss)) p_fiss => sample_fake_fission(p)
+          p_score => p_fiss
+
+        end select 
+
+      end if
 
       ! Check if there is a mesh filter
       if (self % has_mesh_filter) then
 
         ! Get filter index
-        call self % setup_filter_indices(p)
+        call self % setup_filter_indices(p_score)
 
         ! Get tally score response and weight
-        response = self % scores(j) % p % get_response(p)
-        weight = self % scores(j) % p % get_weight(p)
+        response = self % scores(j) % p % get_response(p_score)
+        weight = self % scores(j) % p % get_weight(p_score)
 
         ! Get number of surface crossings
-        call self % mesh_filter % get_crossings(p, n_cross)
+        call self % mesh_filter % get_crossings(p_score, n_cross)
 
         ! Loop around number of crossings and record
         ! Maybe this shouldn't be on the inner most loop because
@@ -631,7 +646,7 @@ module tally_class
         do k = 1, n_cross
 
           ! Get the distance traveled through a bin
-          call self % mesh_filter % get_next_distance(p, flux, bin, found_bin)
+          call self % mesh_filter % get_next_distance(p_score, flux, bin, found_bin)
 
           ! Don't continue if no bin was found
           if (.not. found_bin) cycle
@@ -653,13 +668,13 @@ module tally_class
       else
 
         ! Get filter index
-        call self % setup_filter_indices(p)
+        call self % setup_filter_indices(p_score)
         filter_index = self % get_filter_index()
 
         ! Calculate standard tracklength score
-        flux = self % get_flux(p)
-        response = self % scores(j) % p % get_response(p)
-        weight = self % scores(j) % p % get_weight(p)
+        flux = self % get_flux(p_score)
+        response = self % scores(j) % p % get_response(p_score)
+        weight = self % scores(j) % p % get_weight(p_score)
         score = weight * response * flux
 
         ! Add score to results array
@@ -671,7 +686,6 @@ module tally_class
 
     ! Deallocate particle pointers if associated
     if (associated(p_fiss)) then
-      call p_fiss % clear()
       deallocate(p_fiss)
     end if
 
@@ -723,24 +737,32 @@ module tally_class
 
     integer :: i_nuclide_rxn
     integer :: i_reaction
+    type(Nuclide),  pointer :: nuc
+    type(Reaction), pointer :: rxn
+
+    ! Switch over random number stream to tallies
+    call prn_set_stream(STREAM_TALLIES)
 
     ! Allocate fake fission particle and initialize
     allocate(p_fiss)
     call p_fiss % initialize()
 
     ! Copy particle attributes over
-    p % fiss = p
+    p_fiss = p
 
     ! Sample nuclide for fission reaction
-    i_nuclide_rxn = sample_nuclide(p_fake, 'fission')
+    i_nuclide_rxn = sample_nuclide(p_fiss, 'fission')
 
     ! Sample a fake fission
-    call sample_fission(i_nuclide_rxn, i_reaction)
+    call sample_fission(p_fiss, i_nuclide_rxn, i_reaction)
 
     ! Set up pointers and get fission energy
     nuc => p % nuclides(i_nuclide_rxn)
     rxn => nuc % reactions(i_reaction)
     p_fiss % E = sample_fission_energy(nuc, rxn, p_fiss % last_E)
+
+    ! Switch over random number stream to tallies
+    call prn_set_stream(STREAM_TRACKING)
 
   end function sample_fake_fission
 
@@ -750,8 +772,8 @@ module tally_class
 
   subroutine collision_tally_score(self, p)
 
-    class(CollisionTallyClass) :: self
-    type(Particle) :: p
+    class(CollisionTallyClass), intent(inout) :: self
+    type(Particle), target, intent(in) :: p
 
     integer :: filter_index
     integer :: j

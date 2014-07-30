@@ -1,12 +1,11 @@
 module tracking
 
   use cross_section,   only: calculate_xs
-  use error,           only: fatal_error, warning
+  use error,           only: fatal_error, warning, write_message
   use geometry,        only: find_cell, distance_to_boundary, cross_surface, &
                              cross_lattice, check_cell_overlap
   use geometry_header, only: Universe, BASE_UNIVERSE
   use global
-  use output,          only: write_message
   use particle_header, only: LocalCoord, Particle
   use physics,         only: collision
   use random_lcg,      only: prn

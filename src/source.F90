@@ -2,12 +2,11 @@ module source
 
   use bank_header,      only: Bank
   use constants
-  use error,            only: fatal_error
+  use error,            only: fatal_error, write_message
   use geometry,         only: find_cell
   use geometry_header,  only: BASE_UNIVERSE
   use global
   use math,             only: maxwell_spectrum, watt_spectrum
-  use output,           only: write_message
   use output_interface, only: BinaryOutput
   use particle_header,  only: Particle
   use random_lcg,       only: prn, set_particle_seed
