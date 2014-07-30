@@ -782,18 +782,39 @@ module tally_class
     real(8) :: response ! tally response
     real(8) :: weight ! some form of a neutron statistical weight
     type(Particle), pointer :: p_fiss => null()
+    type(Particle), pointer :: p_score => null()
 
     ! Loop around score bins
     SCORE_LOOP: do j = 1, self % n_scores
 
+      ! Set scoring particle to be the actual particle
+      p_score => p
+
+      ! Special cases for enery out filter
+      if (self % has_eout_filter) then
+        select type (s => self % scores(j) % p)
+
+        type is (NuFissionScoreClass)
+
+          ! If no fission macro, don't score
+          if (p % material_xs % fission == ZERO) cycle
+
+          ! Check to see if we need to sample a fission reaction
+          if (.not. associated(p_fiss)) p_fiss => sample_fake_fission(p)
+          p_score => p_fiss
+
+        end select 
+
+      end if
+
       ! Calculate score
-      flux = self % get_flux(p)
-      response = self % scores(j) % p % get_response(p)
-      weight = self % scores(j) % p % get_weight(p)
+      flux = self % get_flux(p_score)
+      response = self % scores(j) % p % get_response(p_score)
+      weight = self % scores(j) % p % get_weight(p_score)
       score = weight * response * flux
 
       ! Get filter index
-      call self % setup_filter_indices(p)
+      call self % setup_filter_indices(p_score)
       filter_index = self % get_filter_index()
 
       ! Add score to results array
@@ -803,7 +824,6 @@ module tally_class
 
     ! Deallocate particle pointers if associated
     if (associated(p_fiss)) then
-      call p_fiss % clear()
       deallocate(p_fiss)
     end if
 
