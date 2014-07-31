@@ -17,12 +17,9 @@ module state_point
   use global
   use output,             only: time_stamp
   use string,             only: to_str
+  use mpi_interface
   use output_interface
   use random_lcg,         only: seed
-
-#ifdef MPI
-  use mpi
-#endif
 
   implicit none
 

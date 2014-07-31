@@ -56,6 +56,9 @@ module tally_class
       procedure :: get_filter_index
       procedure :: get_label
       procedure :: get_n_filters
+      procedure :: get_total_score_bins
+      procedure :: get_total_filter_bins
+      procedure :: get_results => get_results_pointer
       procedure :: set_filter_index
       procedure :: setup_filter_indices
       procedure, public :: reset => tally_reset
@@ -348,6 +351,33 @@ module tally_class
   end function get_n_filters
 
 !===============================================================================
+! GET_TOTAL_SCORE_BINS
+!===============================================================================
+
+  function get_total_score_bins(self) result(total_score_bins)
+
+    class(TallyClass) :: self
+    integer :: total_score_bins
+
+    total_score_bins = self % total_score_bins
+
+  end function get_total_score_bins
+
+!===============================================================================
+! GET_TOTAL_FILTER_BINS
+!===============================================================================
+
+  function get_total_filter_bins(self) result(total_filter_bins)
+
+    class(TallyClass) :: self
+    integer :: total_filter_bins
+
+    total_filter_bins = self % total_filter_bins
+
+  end function get_total_filter_bins
+
+
+!===============================================================================
 ! GET_FILTERS
 !===============================================================================
 
@@ -360,6 +390,19 @@ module tally_class
     filter => self % filters(i) % p
 
   end function get_filter
+
+!===============================================================================
+! GET_RESULTS_POINTER
+!===============================================================================
+
+  function get_results_pointer(self) result(results)
+
+    class(TallyClass), target :: self
+    class(TallyResultClass), pointer :: results(:,:)
+
+    results => self % results
+
+  end function get_results_pointer
 
 !===============================================================================
 ! SETUP_STRIDE

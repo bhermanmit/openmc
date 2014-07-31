@@ -11,6 +11,7 @@ module output
   use math,            only: t_percentile
   use mesh_header,     only: StructuredMesh
   use mesh,            only: mesh_indices_to_bin, bin_to_mesh_indices
+  use mpi_interface,   only: master
   use particle_header, only: LocalCoord, Particle
   use plot_header
   use string,          only: upper_case, to_str

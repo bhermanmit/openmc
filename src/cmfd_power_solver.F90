@@ -5,6 +5,7 @@ module cmfd_power_solver
   use cmfd_loss_operator, only: init_loss_matrix, build_loss_matrix
   use cmfd_prod_operator, only: init_prod_matrix, build_prod_matrix
   use matrix_header,      only: Matrix
+  use mpi_interface,      only: master, mpi_err
   use solver_interface,   only: GMRESSolver
   use vector_header,      only: Vector
 
@@ -243,7 +244,7 @@ contains
   subroutine convergence(iter)
 
     use constants,  only: ONE, TINY_BIT
-    use global,     only: cmfd_power_monitor, master
+    use global,     only: cmfd_power_monitor
     use, intrinsic :: ISO_FORTRAN_ENV
 
     integer, intent(in) :: iter ! iteration number

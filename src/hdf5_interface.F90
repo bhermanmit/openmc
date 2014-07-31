@@ -7,7 +7,7 @@ module hdf5_interface
   use, intrinsic :: ISO_C_BINDING
 
 #ifdef MPI
-   use mpi, only: MPI_COMM_WORLD, MPI_INFO_NULL
+   use mpi_interface, only: MPI_COMM_WORLD, MPI_INFO_NULL
 #endif
 
   implicit none

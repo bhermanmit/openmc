@@ -3,12 +3,9 @@ module mesh
   use bank_header,     only: Bank
   use constants
   use mesh_header
+  use mpi_interface
   use particle_header, only: Particle
   use search,          only: binary_search
-
-#ifdef MPI
-  use mpi
-#endif
 
   implicit none
 

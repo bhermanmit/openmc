@@ -6,6 +6,7 @@ module cmfd_execute
 !==============================================================================
 
   use global
+  use mpi_interface, only: master
 
   implicit none
   private
@@ -134,10 +135,8 @@ contains
   subroutine calc_fission_source()
 
     use constants,  only: CMFD_NOACCEL, ZERO, TWO
+    use mpi_interface
 
-#ifdef MPI
-    use mpi
-#endif
 
     integer :: nx      ! maximum number of cells in x direction
     integer :: ny      ! maximum number of cells in y direction
@@ -254,15 +253,12 @@ contains
 
   subroutine cmfd_reweight(new_weights)
 
-    use constants,   only: ZERO, ONE
-    use error,       only: warning, fatal_error
-    use mesh_header, only: StructuredMesh
-    use mesh,        only: count_bank_sites, get_mesh_indices
-    use search,      only: binary_search
-
-#ifdef MPI
-    use mpi
-#endif
+    use constants,    only: ZERO, ONE
+    use error,        only: warning, fatal_error
+    use mesh_header,  only: StructuredMesh
+    use mesh,         only: count_bank_sites, get_mesh_indices
+    use mpi_interface
+    use search,       only: binary_search
 
     logical, intent(in) :: new_weights ! calcualte new weights
 

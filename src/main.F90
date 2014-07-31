@@ -6,6 +6,7 @@ program main
   use fixed_source,      only: run_fixedsource
   use global
   use initialize,        only: initialize_run
+  use mpi_interface,     only: master
   use particle_restart,  only: run_particle_restart
   use plot,              only: run_plot
 

@@ -205,9 +205,7 @@ module global
 
   integer :: n_procs     = 1       ! number of processes
   integer :: rank        = 0       ! rank of process
-  logical :: master      = .true.  ! master process?
   logical :: mpi_enabled = .false. ! is MPI in use and initialized?
-  integer :: mpi_err               ! MPI error code
   integer :: MPI_BANK              ! MPI datatype for fission bank
   integer :: MPI_TALLYRESULT       ! MPI datatype for TallyResult
 

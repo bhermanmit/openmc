@@ -21,6 +21,7 @@ contains
   subroutine configure_cmfd()
 
     use cmfd_header,  only: allocate_cmfd
+    use mpi_interface, only: master
 
     integer :: color    ! color group of processor
 
@@ -64,6 +65,7 @@ contains
     use error,   only: fatal_error, warning, write_message
     use global
     use string,  only: lower_case
+    use mpi_interface, only: master
     use xml_interface
     use, intrinsic :: ISO_FORTRAN_ENV
 
@@ -259,6 +261,7 @@ contains
     use constants,        only: MAX_LINE_LEN
     use error,            only: fatal_error, warning
     use mesh_header,      only: StructuredMesh
+    use mpi_interface,    only: master
     use string
     use tally_initialize, only: add_tallies
     use xml_interface

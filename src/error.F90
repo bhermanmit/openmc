@@ -2,10 +2,7 @@ module error
 
   use, intrinsic :: ISO_FORTRAN_ENV
   use constants
-
-#ifdef MPI
-  use mpi
-#endif
+  use mpi_interface
 
   implicit none
 

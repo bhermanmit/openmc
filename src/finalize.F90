@@ -3,11 +3,8 @@ module finalize
   use global
   use output,         only: print_runtime, print_results, &
                             print_overlap_check
+  use mpi_interface
   use tally,          only: tally_statistics, write_tallies
-
-#ifdef MPI
-  use mpi
-#endif
 
 #ifdef HDF5
   use hdf5_interface,  only: h5tclose_f, h5close_f, hdf5_err

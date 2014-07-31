@@ -2,6 +2,7 @@ module tally
 
   use error,              only: fatal_error, warning, write_message
   use global
+  use mpi_interface
   use particle_header,    only: Particle
   use string,             only: lower_case
   use tally_class
@@ -182,6 +183,88 @@ module tally
     n_realizations = n_realizations + 1
 
   end subroutine synchronize_tallies
+
+!===============================================================================
+! REDUCE_TALLY_RESULTS collects all the results from tallies onto one processor
+!===============================================================================
+
+#ifdef MPI
+  subroutine reduce_tally_results()
+
+    integer :: i
+    integer :: n      ! number of filter bins
+    integer :: m      ! number of score bins
+    integer :: n_bins ! total number of bins
+    real(8), allocatable :: tally_temp(:,:) ! contiguous array of results
+    real(8) :: global_temp(N_GLOBAL_TALLIES)
+    real(8) :: dummy  ! temporary receive buffer for non-root reduces
+    class(TallyClass), pointer :: t => null()
+    class(TallyResultClass), pointer :: r(:,:) => null()
+
+    do i = 1, active_tallies % size()
+      t => tallies(active_tallies % get_item(i)) % p
+
+      m = t % get_total_score_bins()
+      n = t % get_total_filter_bins()
+      n_bins = m*n
+
+      allocate(tally_temp(m,n))
+
+      r => t % get_results()
+      tally_temp = r(:,:) % get_value()
+
+      if (master) then
+        ! The MPI_IN_PLACE specifier allows the master to copy values into
+        ! a receive buffer without having a temporary variable
+        call MPI_REDUCE(MPI_IN_PLACE, tally_temp, n_bins, MPI_REAL8, &
+             MPI_SUM, 0, MPI_COMM_WORLD, mpi_err)
+
+        ! Transfer values to value on master
+        call r(:,:) % set_value(tally_temp)
+      else
+        ! Receive buffer not significant at other processors
+        call MPI_REDUCE(tally_temp, dummy, n_bins, MPI_REAL8, &
+             MPI_SUM, 0, MPI_COMM_WORLD, mpi_err)
+
+        ! Reset value on other processors
+        call r(:,:) % set_value(ZERO)
+      end if
+
+      deallocate(tally_temp)
+    end do
+
+    ! Copy global tallies into array to be reduced
+    global_temp = global_tallies(:) % get_value()
+
+    if (master) then
+      call MPI_REDUCE(MPI_IN_PLACE, global_temp, N_GLOBAL_TALLIES, &
+           MPI_REAL8, MPI_SUM, 0, MPI_COMM_WORLD, mpi_err)
+
+      ! Transfer values back to global_tallies on master
+      call global_tallies(:) % set_value(global_temp)
+    else
+      ! Receive buffer not significant at other processors
+      call MPI_REDUCE(global_temp, dummy, N_GLOBAL_TALLIES, &
+           MPI_REAL8, MPI_SUM, 0, MPI_COMM_WORLD, mpi_err)
+
+      ! Reset value on other processors
+      call global_tallies(:) % set_value(ZERO)
+    end if
+
+    ! We also need to determine the total starting weight of particles from the
+    ! last realization
+    if (master) then
+      call MPI_REDUCE(MPI_IN_PLACE, total_weight, 1, MPI_REAL8, MPI_SUM, &
+           0, MPI_COMM_WORLD, mpi_err)
+    else
+      ! Receive buffer not significant at other processors
+      call MPI_REDUCE(total_weight, dummy, 1, MPI_REAL8, MPI_SUM, &
+           0, MPI_COMM_WORLD, mpi_err)
+    end if
+
+  end subroutine reduce_tally_results
+#endif
+
 
 !===============================================================================
 ! WRITE_TALLIES

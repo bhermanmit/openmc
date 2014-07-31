@@ -8,6 +8,7 @@ module ace
   use fission,          only: nu_total
   use global
   use material_header,  only: Material
+  use mpi_interface,    only: master
   use set_header,       only: SetChar
   use string,           only: to_str
 

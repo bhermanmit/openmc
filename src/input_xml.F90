@@ -8,6 +8,7 @@ module input_xml
   use global
   use list_header,        only: ListChar, ListReal
   use mesh_header,        only: StructuredMesh
+  use mpi_interface,      only: master
   use plot_header
   use random_lcg,         only: prn, seed
   use string,             only: lower_case, to_str, str_to_int, str_to_real, &

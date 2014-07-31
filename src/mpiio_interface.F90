@@ -1,7 +1,7 @@
 module mpiio_interface
 
 #ifdef MPI
-  use mpi
+  use mpi_interface
 
   implicit none
 
