@@ -160,6 +160,11 @@ module tally
     real(8) :: k_abs ! Copy of batch absorption estimate of keff
     real(8) :: k_tra ! Copy of batch tracklength estimate of keff
 
+#ifdef MPI
+    ! Reduce tallies
+    if (reduce_tallies) call reduce_tally_results()
+#endif
+
     ! Accumulate active tallies
     do i = 1, active_tallies % size()
       call tallies(i) % p % accumulate(total_weight)
@@ -210,8 +215,8 @@ module tally
 
       allocate(tally_temp(m,n))
 
-      r => t % get_results()
-      tally_temp = r(:,:) % get_value()
+      call t % get_results_pointer(r)
+      call r % get_values(tally_temp)
 
       if (master) then
         ! The MPI_IN_PLACE specifier allows the master to copy values into
@@ -220,35 +225,35 @@ module tally
              MPI_SUM, 0, MPI_COMM_WORLD, mpi_err)
 
         ! Transfer values to value on master
-        call r(:,:) % set_value(tally_temp)
+        call r % set_values(tally_temp)
       else
         ! Receive buffer not significant at other processors
         call MPI_REDUCE(tally_temp, dummy, n_bins, MPI_REAL8, &
              MPI_SUM, 0, MPI_COMM_WORLD, mpi_err)
 
         ! Reset value on other processors
-        call r(:,:) % set_value(ZERO)
+        call r % set_values(ZERO)
       end if
 
       deallocate(tally_temp)
     end do
 
     ! Copy global tallies into array to be reduced
-    global_temp = global_tallies(:) % get_value()
+    call global_tallies % get_values(global_temp)
 
     if (master) then
       call MPI_REDUCE(MPI_IN_PLACE, global_temp, N_GLOBAL_TALLIES, &
            MPI_REAL8, MPI_SUM, 0, MPI_COMM_WORLD, mpi_err)
 
       ! Transfer values back to global_tallies on master
-      call global_tallies(:) % set_value(global_temp)
+      call global_tallies(:) % set_values(global_temp)
     else
       ! Receive buffer not significant at other processors
       call MPI_REDUCE(global_temp, dummy, N_GLOBAL_TALLIES, &
            MPI_REAL8, MPI_SUM, 0, MPI_COMM_WORLD, mpi_err)
 
       ! Reset value on other processors
-      call global_tallies(:) % set_value(ZERO)
+      call global_tallies(:) % set_values(ZERO)
     end if
 
     ! We also need to determine the total starting weight of particles from the

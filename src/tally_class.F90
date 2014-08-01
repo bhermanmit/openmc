@@ -26,12 +26,12 @@ module tally_class
     integer :: id ! ID of tally
     integer :: i_filter = 1  ! Current filter
     integer :: i_score = 1  ! Current score
-    integer :: n_filters = ZERO ! Number of filters
-    integer :: n_realizations = ZERO ! Number of tally realizations
-    integer :: n_scores = ZERO ! Number of scores
-    integer :: total_nuclide_bins = ONE ! Total number of nuclide bins
-    integer :: total_score_bins = ZERO ! Total number of score bins
-    integer :: total_filter_bins = ONE ! Total number of filter bins
+    integer :: n_filters = 0 ! Number of filters
+    integer :: n_realizations = 0 ! Number of tally realizations
+    integer :: n_scores = 0 ! Number of scores
+    integer :: total_nuclide_bins = 1 ! Total number of nuclide bins
+    integer :: total_score_bins = 0 ! Total number of score bins
+    integer :: total_filter_bins = 1 ! Total number of filter bins
     integer :: find_filter(N_FILTER_TYPES)
     integer :: nuclide_bins(1) = -1
     integer, allocatable :: stride(:)
@@ -58,7 +58,7 @@ module tally_class
       procedure :: get_n_filters
       procedure :: get_total_score_bins
       procedure :: get_total_filter_bins
-      procedure :: get_results => get_results_pointer
+      procedure, public :: get_results_pointer
       procedure :: set_filter_index
       procedure :: setup_filter_indices
       procedure, public :: reset => tally_reset
@@ -395,14 +395,14 @@ module tally_class
 ! GET_RESULTS_POINTER
 !===============================================================================
 
-  function get_results_pointer(self) result(results)
+  subroutine get_results_pointer(self, results)
 
-    class(TallyClass), target :: self
-    class(TallyResultClass), pointer :: results(:,:)
+    class(TallyClass), intent(inout), target:: self
+    class(TallyResultClass), pointer, intent(out) :: results(:,:)
 
     results => self % results
 
-  end function get_results_pointer
+  end subroutine get_results_pointer
 
 !===============================================================================
 ! SETUP_STRIDE
@@ -812,12 +812,12 @@ module tally_class
     type(Particle), intent(in) :: p
     type(Particle), pointer, intent(inout) :: p_fiss
 
-    integer :: k
+    integer(8) :: k
     integer :: filter_index
     real(8) :: score
 
     ! Loop around particles in bank
-    do k = p % n_bank - p % nu + 1, p % n_bank
+    do k = p % n_bank - int(p % nu, 8) + 1, p % n_bank
 
       ! Check to create particle
       if (.not. associated(p_fiss)) allocate(p_fiss)

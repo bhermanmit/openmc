@@ -16,6 +16,8 @@ module tally_result_class
       procedure, public :: get_sum_sq
       procedure, public :: get_value
       procedure, public :: set_value
+      procedure, public :: get_values
+      procedure, public :: set_values
       procedure, public :: statistics => statistics_result
       procedure, public :: reset => reset_result
       procedure, public :: write => write_result
@@ -78,9 +80,9 @@ module tally_result_class
 ! GET_VALUE
 !===============================================================================
 
-  elemental function get_value(self) result(val)
+  function get_value(self) result(val)
 
-    class(TallyResultClass), intent(in) :: self
+    class(TallyResultClass) :: self
     real(8) :: val
 
     val = self % value
@@ -88,10 +90,10 @@ module tally_result_class
  end function get_value
 
 !===============================================================================
-! GET_VALUE
+! SET_VALUE
 !===============================================================================
 
-  elemental subroutine set_value(self, val)
+  subroutine set_value(self, val)
 
     class(TallyResultClass), intent(inout) :: self
     real(8), intent(in) :: val
@@ -99,6 +101,32 @@ module tally_result_class
     self % value = val
 
  end subroutine set_value
+
+!===============================================================================
+! GET_VALUES
+!===============================================================================
+
+  elemental subroutine get_values(self, val)
+
+    class(TallyResultClass), intent(inout) :: self
+    real(8), intent(out) :: val
+
+    val = self % value
+
+ end subroutine get_values
+
+!===============================================================================
+! SET_VALUES
+!===============================================================================
+
+  elemental subroutine set_values(self, val)
+
+    class(TallyResultClass), intent(inout) :: self
+    real(8), intent(in) :: val
+
+    self % value = val
+
+ end subroutine set_values
 
 !===============================================================================
 ! STATISTICS_RESULT determines the sample mean and the standard deviation of the

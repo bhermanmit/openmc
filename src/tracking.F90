@@ -6,6 +6,7 @@ module tracking
                              cross_lattice, check_cell_overlap
   use geometry_header, only: Universe, BASE_UNIVERSE
   use global
+  use mpi_interface,   only: master
   use particle_header, only: LocalCoord, Particle
   use physics,         only: collision
   use random_lcg,      only: prn

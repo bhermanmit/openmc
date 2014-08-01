@@ -3,6 +3,7 @@ module fixed_source
   use constants,       only: ZERO
   use error,           only: write_message
   use global
+  use mpi_interface,   only: master
   use output,          only: header
   use particle_header, only: Particle
   use random_lcg,      only: set_particle_seed
