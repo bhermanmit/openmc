@@ -1,10 +1,11 @@
 module cross_section
 
-  use ace_header,      only: Nuclide, SAlphaBeta, Reaction, UrrData
+  use ace_header,      only: Nuclide, SAlphaBeta, Reaction, UrrData, &
+                             material_xs, micro_xs, sab_tables, e_grid, &
+                             n_grid, urr_ptables_on, grid_method, nuclides
   use constants
   use error,           only: fatal_error
   use fission,         only: nu_total
-  use global
   use material_header, only: Material
   use particle_header, only: Particle
   use random_lcg,      only: prn

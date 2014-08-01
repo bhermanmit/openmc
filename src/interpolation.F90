@@ -2,13 +2,11 @@ module interpolation
 
   use constants
   use endf_header, only: Tab1
-  use error,       only: fatal_error
+  use error,       only: fatal_error, message
   use search,      only: binary_search
   use string,      only: to_str
 
   implicit none
-
-  character(2*MAX_LINE_LEN) :: message
 
   interface interpolate_tab1
     module procedure interpolate_tab1_array, interpolate_tab1_object
@@ -120,7 +118,7 @@ contains
       y = exp((1-r)*log(y0) + r*log(y1))
     case default
       message = "Unsupported interpolation scheme: " // to_str(interp)
-      call fatal_error(message)
+      call fatal_error()
     end select
 
   end function interpolate_tab1_array
@@ -206,7 +204,7 @@ contains
       y = exp((1-r)*log(y0) + r*log(y1))
     case default
       message = "Unsupported interpolation scheme: " // to_str(interp)
-      call fatal_error(message)
+      call fatal_error()
     end select
 
   end function interpolate_tab1_object

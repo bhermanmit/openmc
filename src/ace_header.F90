@@ -1,6 +1,7 @@
 module ace_header
 
-  use constants,   only: MAX_FILE_LEN
+  use constants
+  use dict_header,  only: DictCharInt
   use endf_header, only: Tab1
 
   implicit none
@@ -256,6 +257,44 @@ module ace_header
     real(8) :: nu_fission    ! macroscopic production xs
     real(8) :: kappa_fission ! macroscopic energy-released from fission
   end type MaterialMacroXS
+
+!===============================================================================
+! GLOBAL MEMORY
+!===============================================================================
+
+  ! Cross section arrays
+  type(Nuclide),    save, allocatable, target :: nuclides(:)    ! Nuclide cross-sections
+  type(SAlphaBeta), save, allocatable, target :: sab_tables(:)  ! S(a,b) tables
+  type(XsListing),  save, allocatable, target :: xs_listings(:) ! cross_sections.xml listings 
+
+  ! Cross section caches
+  type(NuclideMicroXS), save, allocatable, target :: micro_xs(:)  ! Cache for each nuclide
+  type(MaterialMacroXS), save, target     :: material_xs  ! Cache for current material
+
+  integer, save :: n_nuclides_total ! Number of nuclide cross section tables
+  integer, save :: n_sab_tables     ! Number of S(a,b) thermal scattering tables
+  integer, save :: n_listings       ! Number of listings in cross_sections.xml
+
+  ! Dictionaries to look up cross sections and listings
+  type(DictCharInt), save :: nuclide_dict
+  type(DictCharInt), save :: sab_dict
+  type(DictCharInt), save :: xs_listing_dict
+
+  ! Unionized energy grid
+  integer, save :: grid_method ! how to treat the energy grid
+  integer, save :: n_grid      ! number of points on unionized grid
+  real(8), save, allocatable :: e_grid(:) ! energies on unionized grid
+
+  ! Unreoslved resonance probablity tables
+  logical, save :: urr_ptables_on = .true.
+
+  ! Default xs identifier (e.g. 70c)
+  character(3), save :: default_xs
+
+  ! What to assume for expanding natural elements
+  integer, save :: default_expand = ENDF_BVII1
+
+!$omp threadprivate(micro_xs, material_xs)
 
   contains
 

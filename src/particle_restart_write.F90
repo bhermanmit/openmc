@@ -1,7 +1,10 @@
 module particle_restart_write
 
-  use bank_header,      only: Bank
-  use global
+  use constants
+  use bank_header,      only: Bank, source_bank
+  use global,           only: run_mode, path_output, current_batch, &
+                              gen_per_batch, current_gen, n_particles, &
+                              current_work
   use output_interface, only: BinaryOutput
   use particle_header,  only: Particle
   use string,           only: to_str

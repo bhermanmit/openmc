@@ -13,8 +13,6 @@ module solver_interface
   implicit none
   private
 
-  character(2*MAX_LINE_LEN) :: message
-
   ! GMRES solver type 
   type, public :: GMRESSolver 
 #ifdef PETSC

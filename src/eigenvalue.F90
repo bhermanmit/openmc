@@ -1,29 +1,41 @@
 module eigenvalue
 
+  use ace_header,   only: material_xs, micro_xs, nuclides, sab_tables, &
+                          nuclides
+  use bank_header,  only: Bank, source_bank, fission_bank, work, n_bank, &
+                          work_index
   use cmfd_execute, only: cmfd_init_batch, execute_cmfd
-  use constants,    only: ZERO
-  use error,        only: fatal_error, warning, write_message
+  use cmfd_header,  only: cmfd_on, cmfd_run
+  use constants
+  use error,        only: fatal_error, warning, write_message, message
   use global
   use math,         only: t_percentile
   use mesh,         only: count_bank_sites
-  use mesh_header,  only: StructuredMesh
+  use mesh_header,  only: StructuredMesh, ufs_mesh, source_frac, entropy_mesh, &
+                          ufs
   use mpi_interface
   use output,       only: header, print_columns,              &
                           print_batch_keff, print_generation
   use particle_header, only: Particle
+  use physics,      only: keff, keff_std, survival_biasing, weight_cutoff, &
+                          weight_survive
   use random_lcg,   only: prn, set_particle_seed, prn_skip
   use search,       only: binary_search
   use source,       only: get_source_particle
   use state_point,  only: write_state_point, write_source_point
   use string,       only: to_str
   use tally,        only: setup_active_usertallies, synchronize_tallies
+  use tally_class,  only: global_tallies, confidence_intervals, n_realizations, &
+                          tallies_on, total_weight
+  use timer_header, only: time_inactive, time_transport, time_active, &
+                          time_bank, time_tallies, time_bank_sample, &
+                          time_bank_sendrecv
   use tracking,     only: transport
 
   implicit none
   private
   public :: run_eigenvalue
 
-  character(2*MAX_LINE_LEN) :: message                                      
   real(8) :: keff_generation ! Single-generation k on each processor
   real(8) :: k_sum(2) = ZERO ! used to reduce sum and sum_sq
 
@@ -138,7 +150,7 @@ contains
   subroutine initialize_batch()
 
     message = "Simulating batch " // trim(to_str(current_batch)) // "..."
-    call write_message(message, 8)
+    call write_message(8)
 
     ! Reset total starting particle weight used for normalizing tallies
     total_weight = ZERO
@@ -325,7 +337,7 @@ contains
 
     if (n_bank == 0) then
       message = "No fission sites banked on processor " // to_str(rank)
-      call fatal_error(message)
+      call fatal_error()
     end if
 
     ! Make sure all processors start at the same point for random sampling. Then
@@ -577,7 +589,7 @@ contains
     ! display warning message if there were sites outside entropy box
     if (sites_outside) then
       message = "Fission source site(s) outside of entropy box."
-      if (master) call warning(message)
+      if (master) call warning()
     end if
 
     ! sum values to obtain shannon entropy
@@ -796,7 +808,7 @@ contains
       ! Check for sites outside of the mesh
       if (master .and. sites_outside) then
         message = "Source sites outside of the UFS mesh!"
-        call fatal_error(message)
+        call fatal_error()
       end if
 
 #ifdef MPI
@@ -827,7 +839,7 @@ contains
     ! Write message at beginning
     if (current_batch == 1) then
       message = "Replaying history from state point..."
-      call write_message(message, 1)
+      call write_message(1)
     end if
 
     do current_gen = 1, gen_per_batch
@@ -845,7 +857,7 @@ contains
     ! Write message at end
     if (current_batch == restart_batch) then
       message = "Resuming simulation..."
-      call write_message(message, 1)
+      call write_message(1)
     end if
 
   end subroutine replay_batch_history

@@ -1,21 +1,23 @@
 module source
 
-  use bank_header,      only: Bank
+  use bank_header,      only: Bank, work, work_index, source_bank
   use constants
-  use error,            only: fatal_error, write_message
+  use error,            only: fatal_error, write_message, message
   use geometry,         only: find_cell
   use geometry_header,  only: BASE_UNIVERSE
-  use global
+  use global,           only: track_identifiers, current_batch, current_gen, &
+                              n_particles, overall_gen, write_all_tracks, &
+                              path_source
   use math,             only: maxwell_spectrum, watt_spectrum
   use mpi_interface
   use output_interface, only: BinaryOutput
   use particle_header,  only: Particle
   use random_lcg,       only: prn, set_particle_seed
+  use source_header,    only: external_source, trace, trace_batch, trace_gen, &
+                              trace_particle
   use string,           only: to_str
 
   implicit none
-
-  character(2*MAX_LINE_LEN) :: message
 
 contains
 
@@ -32,14 +34,14 @@ contains
     type(BinaryOutput) :: sp ! statepoint/source binary file
 
     message = "Initializing source particles..."
-    call write_message(message, 6)
+    call write_message(6)
 
     if (path_source /= '') then
       ! Read the source from a binary file instead of sampling from some
       ! assumed source distribution
 
       message = 'Reading source file from ' // trim(path_source) // '...'
-      call write_message(message, 6)
+      call write_message(6)
 
       ! Open the binary file
       call sp % file_open(path_source, 'r', serial = .false.)
@@ -50,7 +52,7 @@ contains
       ! Check to make sure this is a source file
       if (itmp /= FILETYPE_SOURCE) then
         message = "Specified starting source file not a source file type."
-        call fatal_error(message)
+        call fatal_error()
       end if
 
       ! Read in the source bank
@@ -124,7 +126,7 @@ contains
           if (num_resamples == MAX_EXTSRC_RESAMPLES) then
             message = "Maximum number of external source spatial resamples &
                       &reached!"
-            call fatal_error(message)
+            call fatal_error()
           end if
         end if
       end do
@@ -152,7 +154,7 @@ contains
 
     case default
       message = "No angle distribution specified for external source!"
-      call fatal_error(message)
+      call fatal_error()
     end select
 
     ! Sample energy distribution
@@ -184,7 +186,7 @@ contains
 
     case default
       message = "No energy distribution specified for external source!"
-      call fatal_error(message)
+      call fatal_error()
     end select
 
   end subroutine sample_external_source

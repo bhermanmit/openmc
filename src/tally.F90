@@ -1,18 +1,20 @@
 module tally
 
+  use ace_header,         only: nuclides, xs_listings
+  use constants
   use error,              only: fatal_error, warning, write_message
-  use global
+  use global,             only: path_output, active_batches, k_abs_tra, &
+                                k_col_abs, k_col_tra, run_mode
   use mpi_interface
   use particle_header,    only: Particle
   use string,             only: lower_case
   use tally_class
   use tally_filter_class
+  use tally_result_class
   use tally_score_class
   use xml_interface
 
   implicit none
-
-  character(2*MAX_LINE_LEN) :: message
 
   contains
 

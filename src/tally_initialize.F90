@@ -1,8 +1,9 @@
 module tally_initialize
 
   use constants
-  use global
-  use tally_class, only: Tally_p
+  use tally_class, only: Tally_p, tallies, n_tallies, i_user_tallies, &
+                         i_cmfd_tallies, cmfd_tallies, user_tallies, &
+                         n_cmfd_tallies, n_user_tallies
 
   implicit none
   private

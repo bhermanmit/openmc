@@ -3,6 +3,7 @@ module tally_class
   use ace_header,         only: Nuclide, Reaction, XSListing
   use endf,               only: reaction_name
   use constants
+  use dict_header,        only: DictIntInt
   use mesh_header,        only: StructuredMesh
   use mesh,               only: bin_to_mesh_indices
   use particle_header
@@ -10,6 +11,7 @@ module tally_class
                                 sample_fission_energy
   use random_lcg,         only: prn_set_stream, STREAM_TRACKING, &
                                 STREAM_TALLIES
+  use set_header,         only: SetInt
   use string,             only: to_str, upper_case
   use tally_filter_class 
   use tally_result_class
@@ -124,6 +126,50 @@ module tally_class
   interface CollisionTallyClass
     module procedure collision_tally_init
   end interface
+
+  !====================================
+  ! Global variables
+
+  ! Main tally arrays
+  integer, save, public :: n_tallies      = 0 ! # of tallies
+  integer, save, public :: n_cmfd_tallies = 3 ! # of cmfd tallies
+  integer, save, public :: n_user_tallies = 0 ! # of user tallies
+  real(8), save, public :: total_weight       ! total starting particle weight in realization
+  type(DictIntInt), save, public :: tally_dict
+  type(Tally_p), save, public, allocatable, target :: tallies(:)
+  type(Tally_p), save, public, pointer :: user_tallies(:) => null()
+  type(Tally_p), save, public, pointer :: cmfd_tallies(:) => null()
+
+  ! Location of first tally in tallies
+  integer, save, public :: i_user_tallies = -1
+  integer, save, public :: i_cmfd_tallies = -1
+
+  ! Active tally lists
+  type(SetInt), save, public :: active_analog_tallies
+  type(SetInt), save, public :: active_tracklength_tallies
+  type(SetInt), save, public :: active_collision_tallies
+  type(SetInt), save, public :: active_current_tallies
+  type(SetInt), save, public :: active_tallies
+!$omp threadprivate(active_analog_tallies, active_tracklength_tallies, &
+!$omp&              active_collision_tallies, active_current_tallies, &
+!$omp&              active_tallies)
+
+  ! Global tallies
+  !   1) collision estimate of k-eff
+  !   2) track-length estimate of k-eff
+  !   4) absorption estimate of k-eff
+  !   3) leakage fraction
+  type(TallyResultClass), save, public, target :: global_tallies(N_GLOBAL_TALLIES) ! keff
+  integer, save, public :: n_realizations = 0 ! # of independent realizations
+
+  ! Tally map structure
+! type(TallyMap), save, public, allocatable :: tally_maps(:)
+
+  ! Tally options
+  logical, save, public :: assume_separate = .false. ! tallies overlap?
+  logical, save, public :: confidence_intervals = .false. ! calculate 95% conf. intervals?
+  logical, save, public :: tallies_on = .false. ! tallies on?
+  logical, save, public :: reduce_tallies = .true.
 
   contains
 

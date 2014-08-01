@@ -5,7 +5,8 @@
 
 module track_output
 
-  use global
+  use constants
+  use global,            only: current_batch, current_gen, path_output
   use output_interface,  only: BinaryOutput
   use particle_header,   only: Particle
   use string,            only: to_str

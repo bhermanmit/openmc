@@ -1,11 +1,15 @@
 module cmfd_jfnk_solver
 
-  use cmfd_loss_operator,  only: init_loss_matrix, build_loss_matrix
-  use cmfd_power_solver,   only: cmfd_power_execute
-  use cmfd_prod_operator,  only: init_prod_matrix, build_prod_matrix
-  use matrix_header,       only: Matrix
-  use solver_interface,    only: JFNKSolver, Jfnk_ctx
-  use vector_header,       only: Vector
+  use cmfd_header,        only: cmfd, cmfd_write_matrices, cmfd_adjoint_type
+  use cmfd_loss_operator, only: build_loss_matrix, init_loss_matrix
+  use cmfd_prod_operator, only: build_prod_matrix, init_prod_matrix
+  use cmfd_power_solver,  only: cmfd_power_execute
+  use constants
+  use global,             only: current_batch
+  use matrix_header,      only: Matrix
+  use solver_interface,   only: Jfnk_ctx
+  use timer_header,       only: time_cmfdbuild, time_cmfdsolve
+  use vector_header,      only: Vector
 
   implicit none
   private
@@ -29,8 +33,6 @@ contains
 !===============================================================================
 
   subroutine cmfd_jfnk_execute(adjoint)
-
-    use global,  only: time_cmfdbuild, time_cmfdsolve
 
     logical, intent(in), optional :: adjoint ! adjoint calculation
 
@@ -82,9 +84,6 @@ contains
 !===============================================================================
 
   subroutine init_data()
-
-    use constants, only: ZERO, ONE
-    use global,    only: cmfd, cmfd_adjoint_type, current_batch
 
     logical :: physical_adjoint ! physical adjoing calculation logical
     integer :: n ! size of matrices
@@ -161,8 +160,8 @@ contains
 
   subroutine init_jacobian_matrix()
 
-    integer :: nnz ! number of nonzeros in matrix
-    integer :: n   ! dimension of matrix
+    integer :: nnz
+    integer :: n
 
     ! Get length of matrix and number of nonzeros total in loss matrix
     nnz = loss % nnz
@@ -184,8 +183,6 @@ contains
 !===============================================================================
 
   subroutine build_jacobian_matrix(x)
-
-    use constants,  only: ONE
 
     type(Vector), intent(in) :: x ! solution vector
 
@@ -273,8 +270,6 @@ contains
 #ifdef PETSC
   subroutine compute_nonlinear_residual(x, res)
 
-    use global,       only: cmfd_write_matrices
-
     type(Vector), intent(in)    :: x   ! solution vector
     type(Vector), intent(inout) :: res ! residual vector
 
@@ -343,8 +338,6 @@ contains
 
   subroutine compute_adjoint()
 
-    use global,  only: cmfd_write_matrices
-
     ! Transpose matrices
 #ifdef PETSC
     call loss % transpose()
@@ -366,9 +359,6 @@ contains
 !===============================================================================
 
   subroutine extract_results()
-
-    use constants, only: ZERO, ONE
-    use global,    only: cmfd
 
     integer :: n ! problem size
 

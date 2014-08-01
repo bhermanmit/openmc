@@ -1,6 +1,13 @@
 module cmfd_input
 
-  use global
+  use cmfd_header
+  use constants
+  use error,        only: message, warning, fatal_error, write_message
+  use global,       only: path_input, n_batches
+  use mpi_interface
+  use string,       only: lower_case
+  use timer_header, only: time_cmfd, time_cmfdbuild, time_cmfdsolve
+  use xml_interface
 
 #ifdef PETSC
   use petscsys
@@ -10,8 +17,6 @@ module cmfd_input
   private
   public :: configure_cmfd
 
-  character(2*MAX_LINE_LEN) :: message                                      
-
 contains
 
 !===============================================================================
@@ -19,9 +24,6 @@ contains
 !===============================================================================
 
   subroutine configure_cmfd()
-
-    use cmfd_header,  only: allocate_cmfd
-    use mpi_interface, only: master
 
     integer :: color    ! color group of processor
 
@@ -62,13 +64,6 @@ contains
 
   subroutine read_cmfd_xml()
 
-    use error,   only: fatal_error, warning, write_message
-    use global
-    use string,  only: lower_case
-    use mpi_interface, only: master
-    use xml_interface
-    use, intrinsic :: ISO_FORTRAN_ENV
-
     integer :: ng
     integer, allocatable :: iarray(:)
     logical :: file_exists ! does cmfd.xml exist?
@@ -85,14 +80,14 @@ contains
       ! CMFD is optional unless it is in on from settings
       if (cmfd_on) then
         message = "No CMFD XML file, '" // trim(filename) // "' does not exist!"
-        call fatal_error(message)
+        call fatal_error()
       end if
       return
     else
 
       ! Tell user
       message = "Reading CMFD XML file..."
-      call write_message(message, 5)
+      call write_message(5)
 
     end if
 
@@ -105,7 +100,7 @@ contains
     ! Check if mesh is there
     if (.not.found) then
       message = "No CMFD mesh specified in CMFD XML file."
-      call fatal_error(message)
+      call fatal_error()
     end if
 
     ! Set spatial dimensions in cmfd object
@@ -137,7 +132,7 @@ contains
       if (get_arraysize_integer(node_mesh, "map") /= &
           product(cmfd % indices(1:3))) then
         message = 'FATAL==>CMFD coremap not to correct dimensions'
-        call fatal_error(message)
+        call fatal_error()
       end if
       allocate(iarray(get_arraysize_integer(node_mesh, "map")))
       call get_node_array(node_mesh, "map", iarray)
@@ -235,7 +230,7 @@ contains
     if (trim(cmfd_display) == 'dominance' .and. &
         trim(cmfd_solver_type) /= 'power') then
       message = 'Dominance Ratio only aviable with power iteration solver'
-      if (master) call warning(message)
+      if (master) call warning()
       cmfd_display = ''
     end if
 
@@ -257,14 +252,6 @@ contains
 !===============================================================================
 
   subroutine create_cmfd_tally(doc)
-
-    use constants,        only: MAX_LINE_LEN
-    use error,            only: fatal_error, warning
-    use mesh_header,      only: StructuredMesh
-    use mpi_interface,    only: master
-    use string
-    use tally_initialize, only: add_tallies
-    use xml_interface
 
     type(Node), pointer :: doc ! pointer to XML doc info
 
@@ -302,7 +289,7 @@ contains
 !    n = get_arraysize_integer(node_mesh, "dimension")
 !    if (n /= 2 .and. n /= 3) then
 !       message = "Mesh must be two or three dimensions."
-!       call fatal_error(message)
+!       call fatal_error()
 !    end if
 !    m % n_dimension = n
 !
@@ -317,7 +304,7 @@ contains
 !    if (any(iarray3(1:n) <= 0)) then
 !      message = "All entries on the <dimension> element for a tally mesh &
 !           &must be positive."
-!      call fatal_error(message)
+!      call fatal_error()
 !    end if
 !
 !    ! Read dimensions in each direction
@@ -327,7 +314,7 @@ contains
 !    if (m % n_dimension /= get_arraysize_double(node_mesh, "lower_left")) then
 !      message = "Number of entries on <lower_left> must be the same as &
 !           &the number of entries on <dimension>."
-!      call fatal_error(message)
+!      call fatal_error()
 !    end if
 !    call get_node_array(node_mesh, "lower_left", m % lower_left)
 !
@@ -336,7 +323,7 @@ contains
 !        check_for_node(node_mesh, "width")) then
 !      message = "Cannot specify both <upper_right> and <width> on a &
 !           &tally mesh."
-!      call fatal_error(message)
+!      call fatal_error()
 !    end if
 !
 !    ! Make sure either upper-right or width was specified
@@ -344,7 +331,7 @@ contains
 !        .not.check_for_node(node_mesh, "width")) then
 !      message = "Must specify either <upper_right> and <width> on a &
 !           &tally mesh."
-!      call fatal_error(message)
+!      call fatal_error()
 !    end if
 !
 !    if (check_for_node(node_mesh, "width")) then
@@ -353,14 +340,14 @@ contains
 !          get_arraysize_double(node_mesh, "lower_left")) then
 !        message = "Number of entries on <width> must be the same as the &
 !             &number of entries on <lower_left>."
-!        call fatal_error(message)
+!        call fatal_error()
 !      end if
 !
 !      ! Check for negative widths
 !      call get_node_array(node_mesh, "width", rarray3(1:n))
 !      if (any(rarray3(1:n) < ZERO)) then
 !        message = "Cannot have a negative <width> on a tally mesh."
-!        call fatal_error(message)
+!        call fatal_error()
 !      end if
 !
 !      ! Set width and upper right coordinate
@@ -373,7 +360,7 @@ contains
 !          get_arraysize_double(node_mesh, "lower_left")) then
 !        message = "Number of entries on <upper_right> must be the same as &
 !             &the number of entries on <lower_left>."
-!        call fatal_error(message)
+!        call fatal_error()
 !      end if
 !
 !      ! Check that upper-right is above lower-left
@@ -381,7 +368,7 @@ contains
 !      if (any(rarray3(1:n) < m % lower_left)) then
 !        message = "The <upper_right> coordinates must be greater than the &
 !             &<lower_left> coordinates on a tally mesh."
-!        call fatal_error(message)
+!        call fatal_error()
 !      end if
 !
 !      ! Set upper right coordinate and width

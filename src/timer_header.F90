@@ -3,6 +3,7 @@ module timer_header
   use constants, only: ZERO
 
   implicit none
+  private
 
 !===============================================================================
 ! TIMER represents a timer that can be started and stopped to measure how long
@@ -10,17 +11,34 @@ module timer_header
 ! time rather than cpu_time.
 !===============================================================================
 
-  type Timer
+  type, public :: Timer
     private
     logical :: running      = .false. ! is timer running?
     integer :: start_counts = 0       ! counts when started
     real(8), public :: elapsed = ZERO ! total time elapsed in seconds
    contains
-     procedure :: start     => timer_start
-     procedure :: get_value => timer_get_value
-     procedure :: stop      => timer_stop
-     procedure :: reset     => timer_reset
+     procedure, public :: start     => timer_start
+     procedure, public :: get_value => timer_get_value
+     procedure, public :: stop      => timer_stop
+     procedure, public :: reset     => timer_reset
   end type Timer
+
+  ! Timing global variables
+  type(Timer), save, public :: time_total         ! timer for total run
+  type(Timer), save, public :: time_initialize    ! timer for initialization
+  type(Timer), save, public :: time_read_xs       ! timer for reading cross sections
+  type(Timer), save, public :: time_unionize      ! timer for unionizing energy grid
+  type(Timer), save, public :: time_bank          ! timer for fission bank synchronization
+  type(Timer), save, public :: time_bank_sample   ! timer for fission bank sampling
+  type(Timer), save, public :: time_bank_sendrecv ! timer for fission bank SEND/RECV
+  type(Timer), save, public :: time_tallies       ! timer for accumulate tallies
+  type(Timer), save, public :: time_inactive      ! timer for inactive batches
+  type(Timer), save, public :: time_active        ! timer for active batches
+  type(Timer), save, public :: time_transport     ! timer for transport only
+  type(Timer), save, public :: time_finalize      ! timer for finalization
+  type(Timer), save, public :: time_cmfd          ! timer for whole cmfd calculation
+  type(Timer), save, public :: time_cmfdbuild     ! timer for matrix build
+  type(Timer), save, public :: time_cmfdsolve     ! timer for solver 
 
 contains
 

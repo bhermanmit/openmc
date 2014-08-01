@@ -1,8 +1,8 @@
 module cmfd_loss_operator
 
-  use constants,      only: CMFD_NOACCEL, ZERO
-  use global,         only: cmfd, cmfd_coremap
-  use matrix_header,  only: Matrix
+  use cmfd_header,   only: cmfd, cmfd_coremap
+  use constants
+  use matrix_header, only: Matrix
 
   implicit none
   private

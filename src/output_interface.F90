@@ -1,8 +1,10 @@
 module output_interface
 
+  use bank_header,        only: work, work_index, source_bank
   use constants
   use error,              only: warning, fatal_error
-  use global
+  use global,             only: n_particles
+  use mpi_interface,      only: rank 
   use tally_result_class, only: TallyResultClass
 
 #ifdef HDF5

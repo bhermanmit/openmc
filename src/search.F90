@@ -1,15 +1,13 @@
 module search
 
   use constants
-  use error,     only: fatal_error
+  use error,     only: fatal_error, message
 
   integer, parameter :: MAX_ITERATION = 64
 
   interface binary_search
     module procedure binary_search_real, binary_search_int4, binary_search_int8
   end interface binary_search
-
-  character(2*MAX_LINE_LEN) :: message
 
 contains
 
@@ -35,7 +33,7 @@ contains
 
     if (val < array(L) .or. val > array(R)) then
       message = "Value outside of array during binary search"
-      call fatal_error(message)
+      call fatal_error()
     end if
 
     n_iteration = 0
@@ -63,7 +61,7 @@ contains
       n_iteration = n_iteration + 1
       if (n_iteration == MAX_ITERATION) then
         message = "Reached maximum number of iterations on binary search."
-        call fatal_error(message)
+        call fatal_error()
       end if
     end do
 
@@ -88,7 +86,7 @@ contains
 
     if (val < array(L) .or. val > array(R)) then
       message = "Value outside of array during binary search"
-      call fatal_error(message)
+      call fatal_error()
     end if
 
     n_iteration = 0
@@ -116,7 +114,7 @@ contains
       n_iteration = n_iteration + 1
       if (n_iteration == MAX_ITERATION) then
         message = "Reached maximum number of iterations on binary search."
-        call fatal_error(message)
+        call fatal_error()
       end if
     end do
 
@@ -141,7 +139,7 @@ contains
 
     if (val < array(L) .or. val > array(R)) then
       message = "Value outside of array during binary search"
-      call fatal_error(message)
+      call fatal_error()
     end if
 
     n_iteration = 0
@@ -169,7 +167,7 @@ contains
       n_iteration = n_iteration + 1
       if (n_iteration == MAX_ITERATION) then
         message = "Reached maximum number of iterations on binary search."
-        call fatal_error(message)
+        call fatal_error()
       end if
     end do
 

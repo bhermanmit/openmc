@@ -1,6 +1,7 @@
 module plot_header
 
   use constants
+  use dict_header, only: DictIntInt
 
   implicit none
 
@@ -41,5 +42,10 @@ module plot_header
   ! Indicate whether color refers to unique cell or unique material
   integer, parameter :: PLOT_COLOR_CELLS = 1
   integer, parameter :: PLOT_COLOR_MATS = 2
+
+  ! Main plot global data
+  integer, save :: n_plots ! # of plots
+  type(ObjectPlot), save, allocatable, target :: plots(:)
+  type(DictIntInt), save :: plot_dict
 
 end module plot_header

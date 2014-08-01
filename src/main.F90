@@ -4,7 +4,7 @@ program main
   use eigenvalue,        only: run_eigenvalue
   use finalize,          only: finalize_run
   use fixed_source,      only: run_fixedsource
-  use global
+  use global,            only: run_mode
   use initialize,        only: initialize_run
   use mpi_interface,     only: master
   use particle_restart,  only: run_particle_restart

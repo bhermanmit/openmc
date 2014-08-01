@@ -1,17 +1,22 @@
 module geometry
 
   use constants
-  use error,                  only: fatal_error, warning, write_message
-  use geometry_header,        only: Cell, Surface, Universe, Lattice
-  use global
+  use error,                  only: fatal_error, warning, write_message, &
+                                    verbosity, message
+  use geometry_header,        only: Cell, Surface, Universe, Lattice, cells, &
+                                    universes, lattices, surfaces, n_cells, &
+                                    n_surfaces, overlap_check_cnt
+  use global,                 only: n_lost_particles, run_mode
+  use material_header,        only: materials
   use particle_header,        only: LocalCoord, deallocate_coord, Particle
   use particle_restart_write, only: write_particle_restart
+  use source_header,          only: trace
   use string,                 only: to_str
+  use tally_class,            only: tallies_on, active_current_tallies, &
+                                    global_tallies
 
   implicit none
 
-  character(2*MAX_LINE_LEN) :: message
-     
 contains
 
 !===============================================================================
@@ -104,7 +109,7 @@ contains
                       trim(to_str(cells(index_cell) % id)) // ", " // &
                       trim(to_str(cells(coord % cell) % id)) //       &
                       " on universe " // trim(to_str(univ % id))
-            call fatal_error(message)
+            call fatal_error()
           end if
 
           overlap_check_cnt(index_cell) = overlap_check_cnt(index_cell) + 1
@@ -180,7 +185,7 @@ contains
         ! Show cell information on trace
         if (verbosity >= 10 .or. trace) then
           message = "    Entering cell " // trim(to_str(c % id))
-          call write_message(message)
+          call write_message()
         end if
 
         if (c % type == CELL_NORMAL) then
@@ -393,7 +398,7 @@ contains
     surf => surfaces(i_surface)
     if (verbosity >= 10 .or. trace) then
       message = "    Crossing surface " // trim(to_str(surf % id))
-      call write_message(message)
+      call write_message()
     end if
 
     if (surf % bc == BC_VACUUM .and. (run_mode /= MODE_PLOTTING)) then
@@ -425,7 +430,7 @@ contains
       ! Display message
       if (verbosity >= 10 .or. trace) then
         message = "    Leaked out of surface " // trim(to_str(surf % id))
-        call write_message(message)
+        call write_message()
       end if
       return
 
@@ -571,7 +576,7 @@ contains
       case default
         message = "Reflection not supported for surface " // &
              trim(to_str(surf % id))
-        call fatal_error(message)
+        call fatal_error()
       end select
 
       ! Set new particle direction
@@ -602,7 +607,7 @@ contains
       ! Diagnostic message
       if (verbosity >= 10 .or. trace) then
         message = "    Reflected from surface " // trim(to_str(surf%id))
-        call write_message(message)
+        call write_message()
       end if
       return
     end if
@@ -683,7 +688,7 @@ contains
            ". Current position (" // trim(to_str(p % coord % lattice_x)) &
            // "," // trim(to_str(p % coord % lattice_y)) // "," // &
            trim(to_str(p % coord % lattice_z)) // ")"
-      call write_message(message)
+      call write_message()
     end if
 
     if (lat % type == LATTICE_RECT) then
@@ -1502,7 +1507,7 @@ contains
     type(Surface), pointer  :: surf
 
     message = "Building neighboring cells lists for each surface..."
-    call write_message(message, 4)
+    call write_message(4)
 
     allocate(count_positive(n_surfaces))
     allocate(count_negative(n_surfaces))
@@ -1574,7 +1579,7 @@ contains
     type(Particle), intent(inout) :: p
 
     ! Print warning and write lost particle file
-    call warning(message)
+    call warning()
     call write_particle_restart(p)
 
     ! Increment number of lost particles
@@ -1587,7 +1592,7 @@ contains
     ! reached
     if (n_lost_particles == MAX_LOST_PARTICLES) then
       message = "Maximum number of lost particles has been reached."
-      call fatal_error(message)
+      call fatal_error()
     end if
 
   end subroutine handle_lost_particle

@@ -2,19 +2,34 @@ module output
 
   use, intrinsic :: ISO_FORTRAN_ENV
 
-  use ace_header,      only: Nuclide, Reaction, UrrData
+  use ace_header,      only: Nuclide, Reaction, UrrData, SAlphaBeta, sab_tables, &
+                             n_nuclides_total, n_sab_tables, n_grid, nuclides
+  use cmfd_header,     only: cmfd, cmfd_run, cmfd_display, cmfd_on
   use constants
   use endf,            only: reaction_name
-  use error,           only: warning
-  use geometry_header, only: Cell, Universe, Surface, BASE_UNIVERSE
-  use global
+  use error,           only: warning, message
+  use geometry_header, only: Cell, Universe, Surface, Lattice, BASE_UNIVERSE, &
+                             cells, surfaces, universes, lattices, cell_dict, &
+                             surface_dict, universe_dict, lattice_dict, &
+                             n_cells, n_universes, n_lattices, n_surfaces, &
+                             overlap_check_cnt
+  use global,          only: k_combined, gen_per_batch, n_active, n_batches, & 
+                             n_inactive, n_particles, restart_batch, &
+                             restart_run, current_batch, overall_gen, &
+                             current_gen, path_output, run_mode, k_generation, &
+                             entropy_on, entropy
+  use material_header, only: Material, materials, n_materials
   use math,            only: t_percentile
   use mesh_header,     only: StructuredMesh
   use mesh,            only: mesh_indices_to_bin, bin_to_mesh_indices
-  use mpi_interface,   only: master
+  use mpi_interface,   only: master, n_procs
   use particle_header, only: LocalCoord, Particle
+  use physics,         only: keff, keff_std, survival_biasing, weight_cutoff, &
+                             weight_survive
   use plot_header
   use string,          only: upper_case, to_str
+  use tally_class,     only: global_tallies, n_realizations
+  use timer_header
 
   implicit none
 
@@ -1500,7 +1515,6 @@ contains
 
   subroutine print_results()
 
-    character(2*MAX_LINE_LEN) :: message
     real(8) :: alpha   ! significance level for CI
     real(8) :: t_value ! t-value for confidence intervals
 
@@ -1535,7 +1549,7 @@ contains
            global_tallies(LEAKAGE) % get_sum_sq()
     else
       message = "Could not compute uncertainties -- only one active batch simulated!"
-      if (master) call warning(message)
+      if (master) call warning()
 
       write(ou,103) "k-effective (Collision)", global_tallies(K_COLLISION) % get_sum()
       write(ou,103) "k-effective (Track-length)", global_tallies(K_TRACKLENGTH)  % get_sum()

@@ -1,20 +1,20 @@
 module ace
 
   use ace_header,       only: Nuclide, Reaction, SAlphaBeta, XsListing, &
-                              DistEnergy
+                              DistEnergy, nuclides, sab_tables, micro_xs, &
+                              xs_listings, xs_listing_dict, nuclide_dict, &
+                              sab_dict, n_nuclides_total, n_sab_tables
   use constants
   use endf,             only: reaction_name
-  use error,            only: fatal_error, warning, write_message
+  use error,            only: fatal_error, warning, write_message, message
+  use global,           only: run_mode
   use fission,          only: nu_total
-  use global
-  use material_header,  only: Material
+  use material_header,  only: Material, materials, n_materials
   use mpi_interface,    only: master
   use set_header,       only: SetChar
   use string,           only: to_str
 
   implicit none
-
-  character(2*MAX_LINE_LEN) :: message
 
   integer :: NXS(16)             ! Descriptors for ACE XSS tables
   integer :: JXS(32)             ! Pointers into ACE XSS tables
@@ -129,7 +129,7 @@ contains
         if (mat % i_sab_nuclides(k) == NONE) then
           message = "S(a,b) table " // trim(mat % sab_names(k)) // " did not &
                &match any nuclide on material " // trim(to_str(mat % id))
-          call fatal_error(message)
+          call fatal_error()
         end if
       end do ASSIGN_SAB
 
@@ -221,16 +221,16 @@ contains
     inquire(FILE=filename, EXIST=file_exists, READ=readable)
     if (.not. file_exists) then
       message = "ACE library '" // trim(filename) // "' does not exist!"
-      call fatal_error(message)
+      call fatal_error()
     elseif (readable(1:3) == 'NO') then
       message = "ACE library '" // trim(filename) // "' is not readable! &
            &Change file permissions with chmod command."
-      call fatal_error(message)
+      call fatal_error()
     end if
 
     ! display message
     message = "Loading ACE cross section table: " // listing % name
-    call write_message(message, 6)
+    call write_message(6)
 
     if (filetype == ASCII) then
       ! =======================================================================
@@ -251,7 +251,7 @@ contains
       if(adjustl(name) /= adjustl(listing % name)) then
         message = "XS listing entry " // trim(listing % name) // " did not &
              &match ACE data, " // trim(name) // " found instead."
-        call fatal_error(message)
+        call fatal_error()
       end if
 
       ! Read more header and NXS and JXS
@@ -321,7 +321,7 @@ contains
       ! abort the run.
       if (run_mode == MODE_FIXEDSOURCE .and. nuc % fissionable) then
         message = "Cannot have fissionable material in a fixed source run."
-        call fatal_error(message)
+        call fatal_error()
       end if
 
       ! for fissionable nuclides, precalculate microscopic nu-fission cross
@@ -1195,7 +1195,7 @@ contains
       if (nuc % urr_inelastic == NONE) then
         message = "Could not find inelastic reaction specified on " &
              // "unresolved resonance probability table."
-        call fatal_error(message)
+        call fatal_error()
       end if
     end if
 
@@ -1223,7 +1223,7 @@ contains
     if (any(nuc % urr_data % prob < ZERO)) then
       message = "Negative value(s) found on probability table for nuclide " &
            // nuc % name
-      if (master) call warning(message)
+      if (master) call warning()
     end if
 
   end subroutine read_unr_res

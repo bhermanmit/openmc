@@ -1,16 +1,22 @@
 module initialize
 
-  use ace,                only: read_xs
-  use bank_header,        only: Bank
+  use ace,                only: read_xs 
+  use ace_header,         only: xs_listing_dict, xs_listings, grid_method
+  use bank_header,        only: Bank, work, work_index, source_bank, fission_bank
   use constants
   use dict_header,        only: DictIntInt, ElemKeyValueII
   use energy_grid,        only: unionized_grid
-  use error,              only: fatal_error, warning, write_message
+  use error,              only: fatal_error, warning, write_message, message
   use geometry,           only: neighbor_lists
-  use geometry_header,    only: Cell, Universe, Lattice, BASE_UNIVERSE
+  use geometry_header,    only: Cell, Universe, Lattice, BASE_UNIVERSE, &
+                                cells, surfaces, universes, lattices, &
+                                n_cells, n_surfaces, n_universes, &
+                                n_lattices, cell_dict, surface_dict, &
+                                universe_dict, lattice_dict, check_overlaps
   use global
   use input_xml,          only: read_input_xml, read_cross_sections_xml, &
                                 cells_in_univ_dict, read_plots_xml
+  use material_header,    only: Material, materials, n_materials, material_dict
   use mpi_interface
   use output,             only: title, header, write_summary, print_version, &
                                 print_usage, write_xs_summary, print_plot
@@ -19,10 +25,12 @@ module initialize
   use source,             only: initialize_source
   use state_point,        only: load_state_point
   use string,             only: to_str, str_to_int, starts_with, ends_with
-  use tally_class,        only: TallyClass
+  use tally_class,        only: TallyClass, tallies, n_tallies
   use tally_filter_class, only: TallyFilterClass
   use tally_result_class, only: TallyResultClass
 ! use tally_initialize,   only: configure_tallies
+  use timer_header,       only: time_total, time_initialize, time_read_xs, &
+                                time_unionize
 
 #ifdef _OPENMP
   use omp_lib
@@ -34,8 +42,6 @@ module initialize
 #endif
 
   implicit none
-
-  character(2*MAX_LINE_LEN) :: message
 
 contains
 
@@ -153,9 +159,9 @@ contains
     ! Warn if overlap checking is on
     if (master .and. check_overlaps) then
       message = ""
-      call write_message(message)
+      call write_message()
       message = "Cell overlap checking is ON"
-      if (master) call warning(message)
+      if (master) call warning()
     end if
 
     ! Stop initialization timer
@@ -344,7 +350,7 @@ contains
           if (n_particles == ERROR_INT) then
             message = "Must specify integer after " // trim(argv(i-1)) // &
                  " command-line flag."
-            call fatal_error(message)
+            call fatal_error()
           end if
         case ('-r', '-restart', '--restart')
           ! Read path for state point/particle restart
@@ -365,7 +371,7 @@ contains
             particle_restart_run = .true.
           case default
             message = "Unrecognized file after restart flag."
-            call fatal_error(message)
+            call fatal_error()
           end select
 
           ! If its a restart run check for additional source file
@@ -384,7 +390,7 @@ contains
               call sp % file_close()
               if (filetype /= FILETYPE_SOURCE) then
                 message = "Second file after restart flag must be a source file"
-                call fatal_error(message)
+                call fatal_error()
               end if
 
               ! It is a source file
@@ -419,12 +425,12 @@ contains
           n_threads = int(str_to_int(argv(i)), 4)
           if (n_threads < 1) then
             message = "Invalid number of threads specified on command line."
-            call fatal_error(message)
+            call fatal_error()
           end if
           call omp_set_num_threads(n_threads)
 #else
           message = "Ignoring number of threads specified on command line."
-          if (master) call warning(message)
+          if (master) call warning()
 #endif
 
         case ('-?', '-h', '-help', '--help')
@@ -441,7 +447,7 @@ contains
           i = i + 1
         case default
           message = "Unknown command line option: " // argv(i)
-          call fatal_error(message)
+          call fatal_error()
         end select
 
         last_flag = i
@@ -584,7 +590,7 @@ contains
           else
             message = "Could not find surface " // trim(to_str(abs(id))) // &
                  " specified on cell " // trim(to_str(c % id))
-            call fatal_error(message)
+            call fatal_error()
           end if
         end if
       end do
@@ -598,7 +604,7 @@ contains
       else
         message = "Could not find universe " // trim(to_str(id)) // &
              " specified on cell " // trim(to_str(c % id))
-        call fatal_error(message)
+        call fatal_error()
       end if
 
       ! =======================================================================
@@ -614,7 +620,7 @@ contains
         else
           message = "Could not find material " // trim(to_str(id)) // &
                " specified on cell " // trim(to_str(c % id))
-          call fatal_error(message)
+          call fatal_error()
         end if
       else
         id = c % fill
@@ -633,13 +639,13 @@ contains
           else
             message = "Could not find material " // trim(to_str(mid)) // &
                " specified on lattice " // trim(to_str(lid))
-            call fatal_error(message)
+            call fatal_error()
           end if
           
         else
           message = "Specified fill " // trim(to_str(id)) // " on cell " // &
                trim(to_str(c % id)) // " is neither a universe nor a lattice."
-          call fatal_error(message)
+          call fatal_error()
         end if
       end if
     end do
@@ -666,7 +672,7 @@ contains
             else
               message = "Invalid universe number " // trim(to_str(id)) &
                    // " specified on lattice " // trim(to_str(lat % id))
-              call fatal_error(message)
+              call fatal_error()
             end if
           end do
         end do
@@ -694,7 +700,7 @@ contains
             else
               message = "Could not find cell " // trim(to_str(id)) // &
                    " specified on tally " // trim(to_str(t % get_id()))
-              call fatal_error(message)
+              call fatal_error()
             end if
           end do
 
@@ -710,7 +716,7 @@ contains
 !           else
 !             message = "Could not find surface " // trim(to_str(id)) // &
 !                  " specified on tally " // trim(to_str(t % id))
-!             call fatal_error(message)
+!             call fatal_error()
 !           end if
 !         end do
 
@@ -723,7 +729,7 @@ contains
             else
               message = "Could not find universe " // trim(to_str(id)) // &
                    " specified on tally " // trim(to_str(t % get_id()))
-              call fatal_error(message)
+              call fatal_error()
             end if
           end do
 
@@ -736,7 +742,7 @@ contains
             else
               message = "Could not find material " // trim(to_str(id)) // &
                    " specified on tally " // trim(to_str(t % get_id()))
-              call fatal_error(message)
+              call fatal_error()
             end if
           end do
 
@@ -872,7 +878,7 @@ contains
     ! Check for allocation errors 
     if (alloc_err /= 0) then
       message = "Failed to allocate source bank."
-      call fatal_error(message)
+      call fatal_error()
     end if
 
 #ifdef _OPENMP
@@ -900,7 +906,7 @@ contains
     ! Check for allocation errors 
     if (alloc_err /= 0) then
       message = "Failed to allocate fission bank."
-      call fatal_error(message)
+      call fatal_error()
     end if
 
   end subroutine allocate_banks

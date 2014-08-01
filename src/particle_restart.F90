@@ -4,13 +4,14 @@ module particle_restart
 
   use bank_header,      only: Bank
   use constants
-  use error,            only: write_message
+  use error,            only: write_message, verbosity, message
   use geometry_header,  only: BASE_UNIVERSE
   use global
   use output,           only: print_particle
   use output_interface, only: BinaryOutput
   use particle_header,  only: Particle
   use random_lcg,       only: set_particle_seed
+  use tally_class,      only: n_tallies
   use tracking,         only: transport
 
   implicit none
@@ -19,8 +20,6 @@ module particle_restart
 
   ! Binary file
   type(BinaryOutput) :: pr
-
-  character(2*MAX_LINE_LEN) :: message
 
 contains
 
@@ -70,7 +69,7 @@ contains
     ! Write meessage
     message = "Loading particle restart file " // trim(path_particle_restart) &
               // "..."
-    call write_message(message, 1)
+    call write_message(1)
 
     ! Open file
     call pr % file_open(path_particle_restart, 'r')

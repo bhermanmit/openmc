@@ -1,13 +1,17 @@
 module finalize
 
-  use global
-  use output,         only: print_runtime, print_results, &
-                            print_overlap_check
+  use constants
+  use geometry_header, only: n_cells, overlap_check_cnt, check_overlaps
+  use global,          only: output_tallies, run_mode, free_memory
+  use output,          only: print_runtime, print_results, &
+                             print_overlap_check
   use mpi_interface
-  use tally,          only: tally_statistics, write_tallies
+  use tally,           only: tally_statistics, write_tallies
+  use tally_class,     only: n_realizations
+  use timer_header,    only: time_finalize, time_total
 
 #ifdef HDF5
-  use hdf5_interface,  only: h5tclose_f, h5close_f, hdf5_err
+  use hdf5_interface,   only: h5tclose_f, h5close_f, hdf5_err
 #endif
 
   implicit none

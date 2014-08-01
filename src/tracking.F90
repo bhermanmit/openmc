@@ -1,22 +1,27 @@
 module tracking
 
+  use ace_header,      only: micro_xs, material_xs
+  use constants
   use cross_section,   only: calculate_xs
-  use error,           only: fatal_error, warning, write_message
+  use error,           only: fatal_error, warning, write_message, verbosity, &
+                             message
   use geometry,        only: find_cell, distance_to_boundary, cross_surface, &
                              cross_lattice, check_cell_overlap
-  use geometry_header, only: Universe, BASE_UNIVERSE
-  use global
+  use geometry_header, only: Universe, BASE_UNIVERSE, cells, check_overlaps
   use mpi_interface,   only: master
   use particle_header, only: LocalCoord, Particle
   use physics,         only: collision
   use random_lcg,      only: prn
+  use source_header,   only: trace
   use string,          only: to_str
   use tally,           only: score_analog_tallies, score_tracklength_tallies, &
                              score_collision_tallies
+  use tally_class,     only: active_tracklength_tallies, global_tallies, &
+                             active_collision_tallies, active_analog_tallies, &
+                             total_weight
+  use timer_header,    only: time_inactive, time_transport
   use track_output,    only: initialize_particle_track, write_particle_track, &
                              finalize_particle_track
-
-  character(2*MAX_LINE_LEN) :: message
 
 contains
 
@@ -42,7 +47,7 @@ contains
     ! Display message if high verbosity or trace is on
     if (verbosity >= 9 .or. trace) then
       message = "Simulating Particle " // trim(to_str(p % id))
-      call write_message(message)
+      call write_message()
     end if
 
     ! If the cell hasn't been determined based on the particle's location,
@@ -53,7 +58,7 @@ contains
       ! Particle couldn't be located
       if (.not. found_cell) then
         message = "Could not locate particle " // trim(to_str(p % id))
-        call fatal_error(message)
+        call fatal_error()
       end if
 
       ! set birth cell attribute
@@ -210,7 +215,7 @@ contains
       if (n_event == MAX_EVENTS) then
         message = "Particle " // trim(to_str(p%id)) // " underwent maximum &
              &number of events."
-        if (master) call warning(message)
+        if (master) call warning()
         p % alive = .false.
       end if
 

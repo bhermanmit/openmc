@@ -16,4 +16,15 @@ module source_header
     real(8), allocatable :: params_energy(:) ! parameters for energy distribution
   end type ExtSource
 
+  ! External source
+  type(ExtSource), save, target :: external_source
+
+  ! Trace
+  logical    :: trace
+  integer    :: trace_batch
+  integer    :: trace_gen
+  integer(8) :: trace_particle
+!$omp threadprivate(trace)
+
+
 end module source_header

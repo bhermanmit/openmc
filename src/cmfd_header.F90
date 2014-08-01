@@ -1,6 +1,6 @@
 module cmfd_header 
 
-  use constants,  only: CMFD_NOACCEL, ZERO, ONE
+  use constants
 
   implicit none
   private
@@ -84,6 +84,29 @@ module cmfd_header
     real(8), allocatable :: k_cmfd(:)
 
   end type cmfd_type
+
+  ! CMFD global variables
+  type(cmfd_type), save, public :: cmfd ! main object
+  logical, save, public :: cmfd_run = .false. ! run has cmfd input
+  integer, save, public :: cmfd_comm ! cmfd mpi communicator
+  logical, save, public :: cmfd_coremap = .false. ! core acceleration map active
+  logical, save, public :: dhat_reset = .false. ! reset dhats between cmfd iterations
+  logical, save, public :: cmfd_feedback = .false. ! perform MC source bank feedback
+  character(len=10), save, public :: cmfd_solver_type = 'power'
+  character(len=10), save, public :: cmfd_adjoint_type = 'physical'
+  integer, save, public :: cmfd_ilu_levels = 1
+  integer, save, public :: cmfd_begin = 1 ! what batch to start cmfd
+  integer, save, public :: cmfd_inact_flush(2) = (/9999,1/)
+  integer, save, public :: cmfd_act_flush = 0
+  logical, save, public :: cmfd_downscatter = .false.
+  logical, save, public :: cmfd_snes_monitor  = .false.
+  logical, save, public :: cmfd_ksp_monitor   = .false.
+  logical, save, public :: cmfd_power_monitor = .false.
+  logical, save, public :: cmfd_write_matrices = .false.
+  logical, save, public :: cmfd_run_adjoint = .false.
+  logical, save, public :: cmfd_on             = .false.
+  logical, save, public :: cmfd_tally_on       = .true. 
+  character(len=25), save, public :: cmfd_display = 'balance'
 
 contains
 

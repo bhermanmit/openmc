@@ -84,6 +84,12 @@ module hdf5_interface
 #endif
   end interface hdf5_read_data
 
+  ! HDF5 global variables
+  integer(HID_T), save :: hdf5_output_file   ! identifier for output file
+  integer(HID_T), save :: hdf5_tallyresult_t ! Compound type for TallyResult
+  integer(HID_T), save :: hdf5_bank_t        ! Compound type for Bank
+  integer(HID_T), save :: hdf5_integer8_t    ! type for integer(8)
+
 contains
 
 !===============================================================================

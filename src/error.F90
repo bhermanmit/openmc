@@ -2,9 +2,13 @@ module error
 
   use, intrinsic :: ISO_FORTRAN_ENV
   use constants
-  use mpi_interface
+  use global,        only: current_batch, current_gen, free_memory
+  use mpi_interface, only: master, mpi_err, MPI_ABORT, MPI_COMM_WORLD
 
   implicit none
+
+  character(2*MAX_LINE_LEN) :: message
+  integer :: verbosity = 7
 
 contains
 
@@ -13,9 +17,8 @@ contains
 ! stream.
 !===============================================================================
 
-  subroutine warning(message)
+  subroutine warning()
 
-    character(2*MAX_LINE_LEN) :: message
 
     integer :: i_start   ! starting position
     integer :: i_end     ! ending position
@@ -71,9 +74,8 @@ contains
 ! the program is aborted.
 !===============================================================================
 
-  subroutine fatal_error(message, error_code)
+  subroutine fatal_error(error_code)
 
-    character(2*MAX_LINE_LEN) :: message
     integer, optional :: error_code ! error code
 
     integer :: code      ! error code
@@ -132,12 +134,12 @@ contains
     end do
 
     ! Write information on current batch, generation, and particle
-!   write(ERROR_UNIT,'(1X,A,I12) ') 'Batch:     ', current_batch
-!   write(ERROR_UNIT,'(1X,A,I12) ') 'Generation:', current_gen
-!   write(ERROR_UNIT,*)
+    write(ERROR_UNIT,'(1X,A,I12) ') 'Batch:     ', current_batch
+    write(ERROR_UNIT,'(1X,A,I12) ') 'Generation:', current_gen
+    write(ERROR_UNIT,*)
 
     ! Release memory from all allocatable arrays
-!   call free_memory()
+    call free_memory()
 
 #ifdef MPI
     ! Abort MPI
@@ -158,7 +160,7 @@ contains
 ! standard output stream.
 !===============================================================================
 
-  subroutine write_message(message, level)
+  subroutine write_message(level)
 
     character(2*MAX_LINE_LEN) :: message
     integer, optional :: level ! verbosity level
@@ -175,9 +177,9 @@ contains
     ! Still need to figure out vebosity issue
 
     ! Only allow master to print to screen
-!   if (.not. master .and. present(level)) return
+    if (.not. master .and. present(level)) return
 
-!   if (.not. present(level) .or. level <= verbosity) then
+    if (.not. present(level) .or. level <= verbosity) then
       ! Determine length of message
       length = len_trim(message)
 
@@ -207,7 +209,7 @@ contains
           if (i_start > length) exit
         end if
       end do
-!   end if
+    end if
 
   end subroutine write_message
 

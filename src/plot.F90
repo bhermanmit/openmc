@@ -1,10 +1,10 @@
 module plot
 
   use constants
-  use error,           only: fatal_error, write_message
+  use error,           only: fatal_error, write_message, message
   use geometry,        only: find_cell, check_cell_overlap
-  use geometry_header, only: Cell, BASE_UNIVERSE
-  use global
+  use geometry_header, only: Cell, BASE_UNIVERSE, cells, check_overlaps
+  use material_header, only: materials
   use particle_header, only: deallocate_coord, Particle
   use plot_header
   use ppmlib,          only: Image, init_image, allocate_image, &
@@ -13,8 +13,6 @@ module plot
   use string,          only: to_str
 
   implicit none
-
-  character(2*MAX_LINE_LEN) :: message
 
 contains
 
@@ -32,7 +30,7 @@ contains
 
       ! Display output message
       message = "Processing plot " // trim(to_str(pl % id)) // "..."
-      call write_message(message, 5)
+      call write_message(5)
 
       if (pl % type == PLOT_TYPE_SLICE) then
         ! create 2d image

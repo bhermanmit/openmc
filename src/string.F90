@@ -1,15 +1,13 @@
 module string
 
   use constants, only: MAX_WORDS, MAX_LINE_LEN, ERROR_INT, ERROR_REAL
-  use error,     only: warning
+  use error,     only: warning, message
 
   implicit none
 
   interface to_str
      module procedure int4_to_str, int8_to_str, real_to_str
   end interface
-
-  character(2*MAX_LINE_LEN) :: message
 
 contains
 
@@ -52,7 +50,7 @@ contains
           if (i_end - i_start + 1 > len(words(n))) then
             message = "The word '" // string(i_start:i_end) // &
                  "' is longer than the space allocated for it."
-            call warning(message)
+            call warning()
           end if
           words(n) = string(i_start:i_end)
           ! reset indices

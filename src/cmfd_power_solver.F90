@@ -1,13 +1,17 @@
 module cmfd_power_solver
 
-! This module contains routines to execute the power iteration solver
+  use, intrinsic :: ISO_FORTRAN_ENV
 
-  use cmfd_loss_operator, only: init_loss_matrix, build_loss_matrix
-  use cmfd_prod_operator, only: init_prod_matrix, build_prod_matrix
-  use matrix_header,      only: Matrix
-  use mpi_interface,      only: master, mpi_err
-  use solver_interface,   only: GMRESSolver
-  use vector_header,      only: Vector
+  use cmfd_loss_operator, only: build_loss_matrix, init_loss_matrix
+  use cmfd_prod_operator, only: build_prod_matrix, init_prod_matrix
+  use cmfd_header,        only: cmfd, cmfd_write_matrices, cmfd_power_monitor, &
+                                cmfd_adjoint_type
+  use constants
+  use global,        only: current_batch
+  use matrix_header, only: Matrix
+  use mpi_interface, only: master
+  use timer_header,  only: time_cmfdbuild, time_cmfdsolve
+  use vector_header, only: Vector
 
   implicit none
   private
@@ -41,8 +45,6 @@ contains
 !===============================================================================
 
   subroutine cmfd_power_execute(k_tol, s_tol, adjoint)
-
-    use global,  only: cmfd_adjoint_type, time_cmfdbuild, time_cmfdsolve
 
     real(8), intent(in), optional :: k_tol    ! tolerance on keff
     real(8), intent(in), optional :: s_tol    ! tolerance on source
@@ -104,11 +106,6 @@ contains
 
   subroutine init_data(adjoint)
 
-    use constants, only: ONE, ZERO
-#ifdef PETSC
-    use global,    only: cmfd_write_matrices
-#endif
-
     logical, intent(in) :: adjoint ! adjoint calcualtion
 
     integer :: n      ! problem size
@@ -168,8 +165,6 @@ contains
 !===============================================================================
 
   subroutine compute_adjoint()
-
-    use global,  only: cmfd_write_matrices
 
     ! Transpose matrices
 #ifdef PETSC
@@ -243,10 +238,6 @@ contains
 
   subroutine convergence(iter)
 
-    use constants,  only: ONE, TINY_BIT
-    use global,     only: cmfd_power_monitor
-    use, intrinsic :: ISO_FORTRAN_ENV
-
     integer, intent(in) :: iter ! iteration number
 
     ! Reset convergence flag
@@ -280,8 +271,6 @@ contains
 !===============================================================================
 
   subroutine extract_results()
-
-    use global, only: cmfd, cmfd_write_matrices, current_batch
 
     character(len=25)    :: filename  ! name of file to write data 
     integer              :: n         ! problem size

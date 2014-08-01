@@ -1,7 +1,7 @@
 module xml_interface
 
   use constants, only: MAX_LINE_LEN
-  use error,     only: fatal_error
+  use error,     only: fatal_error, message
   use openmc_fox
 
   implicit none
@@ -36,8 +36,6 @@ module xml_interface
     module procedure get_node_array_double
     module procedure get_node_array_string
   end interface get_node_array
-
-  character(2*MAX_LINE_LEN) :: message
 
 contains
 
@@ -204,7 +202,7 @@ contains
     if (.not. found) then 
       message = "Node " // node_name // " not part of Node " // &
                 getNodeName(ptr) // "."
-      call fatal_error(message)
+      call fatal_error()
     end if
 
     ! Extract value
@@ -237,7 +235,7 @@ contains
     if (.not. found) then 
       message = "Node " // node_name // " not part of Node " // &
                 getNodeName(ptr) // "."
-      call fatal_error(message)
+      call fatal_error()
     end if
       
     ! Extract value
@@ -270,7 +268,7 @@ contains
     if (.not. found) then 
       message = "Node " // node_name // " not part of Node " // &
                 getNodeName(ptr) // "."
-      call fatal_error(message)
+      call fatal_error()
     end if
       
     ! Extract value
@@ -303,7 +301,7 @@ contains
     if (.not. found) then 
       message = "Node " // node_name // " not part of Node " // &
                 getNodeName(ptr) // "."
-      call fatal_error(message)
+      call fatal_error()
     end if
       
     ! Extract value
@@ -336,7 +334,7 @@ contains
     if (.not. found) then 
       message = "Node " // node_name // " not part of Node " // &
                 getNodeName(ptr) // "."
-      call fatal_error(message)
+      call fatal_error()
     end if
       
     ! Extract value
@@ -369,7 +367,7 @@ contains
     if (.not. found) then 
       message = "Node " // node_name // " not part of Node " // &
                 getNodeName(ptr) // "."
-      call fatal_error(message)
+      call fatal_error()
     end if
       
     ! Extract value
@@ -402,7 +400,7 @@ contains
     if (.not. found) then 
       message = "Node " // node_name // " not part of Node " // &
                 getNodeName(ptr) // "."
-      call fatal_error(message)
+      call fatal_error()
     end if
  
     ! Extract value
@@ -435,7 +433,7 @@ contains
     if (.not. found) then
       message = "Node " // node_name // " not part of Node " // &
                 getNodeName(ptr) // "."
-      call fatal_error(message)
+      call fatal_error()
     end if
 
     ! Get the size
@@ -464,7 +462,7 @@ contains
     if (.not. found) then
       message = "Node " // node_name // " not part of Node " // &
                 getNodeName(ptr) // "."
-      call fatal_error(message)
+      call fatal_error()
     end if
 
     ! Get the size
@@ -493,7 +491,7 @@ contains
     if (.not. found) then
       message = "Node " // node_name // " not part of Node " // &
                 getNodeName(ptr) // "."
-      call fatal_error(message)
+      call fatal_error()
     end if
 
     ! Get the size

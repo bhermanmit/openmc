@@ -1,5 +1,7 @@
 module material_header
 
+  use dict_header, only: DictIntInt
+
   implicit none
 
 !===============================================================================
@@ -23,5 +25,13 @@ module material_header
     character(12), allocatable :: names(:)     ! isotope names
     character(12), allocatable :: sab_names(:) ! name of S(a,b) table
   end type Material
+
+!===============================================================================
+! GLOBAL MEMORY
+!===============================================================================
+
+  integer, save :: n_materials ! # of materials
+  type(Material), save, allocatable, target :: materials(:)
+  type(DictIntInt), save :: material_dict
 
 end module material_header

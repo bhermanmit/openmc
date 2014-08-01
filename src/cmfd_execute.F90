@@ -1,18 +1,24 @@
 module cmfd_execute 
 
-!==============================================================================
-! CMFD_EXECUTE -- This module is the highest level cmfd module that controls the
-! cross section generation, diffusion calculation, and source re-weighting
-!==============================================================================
-
-  use global
-  use mpi_interface, only: master
+  use bank_header,       only: source_bank, work
+  use cmfd_data,         only: set_up_cmfd
+  use cmfd_header
+  use cmfd_jfnk_solver,  only: cmfd_jfnk_execute
+  use cmfd_power_solver, only: cmfd_power_execute
+  use constants
+  use error,             only: message, fatal_error, write_message, warning
+  use global,            only: current_batch, entropy_on, restart_batch, &
+                               restart_run, n_batches
+  use mesh,              only: get_mesh_indices, count_bank_sites
+  use mesh_header,       only: StructuredMesh, meshes, n_user_meshes
+  use mpi_interface
+  use search,            only: binary_search
+  use tally_class,       only: n_cmfd_tallies
+  use timer_header,      only: time_cmfd
 
   implicit none
   private
   public :: execute_cmfd, cmfd_init_batch
-
-  character(2*MAX_LINE_LEN) :: message                                      
 
 contains
 
@@ -21,11 +27,6 @@ contains
 !==============================================================================
 
   subroutine execute_cmfd()
-
-    use cmfd_data,              only: set_up_cmfd
-    use cmfd_power_solver,      only: cmfd_power_execute
-    use cmfd_jfnk_solver,       only: cmfd_jfnk_execute
-    use error,                  only: warning, fatal_error 
 
     ! CMFD single processor on master
     if (master) then
@@ -46,7 +47,7 @@ contains
         call cmfd_jfnk_execute()
       else
         message = 'solver type became invalid after input processing'
-        call fatal_error(message) 
+        call fatal_error() 
       end if
 
       ! Save k-effective
@@ -103,7 +104,6 @@ contains
     ! dont want to count)
     if (cmfd_run .and. mod(current_batch,cmfd_inact_flush(1))   &
        == 0 .and. cmfd_inact_flush(2) > 0 .and. cmfd_begin < current_batch) then
-        cmfd_hold_weights = .true.
         call cmfd_tally_reset()
         cmfd_inact_flush(2) = cmfd_inact_flush(2) - 1
     end if
@@ -133,10 +133,6 @@ contains
 !===============================================================================
 
   subroutine calc_fission_source()
-
-    use constants,  only: CMFD_NOACCEL, ZERO, TWO
-    use mpi_interface
-
 
     integer :: nx      ! maximum number of cells in x direction
     integer :: ny      ! maximum number of cells in y direction
@@ -253,13 +249,6 @@ contains
 
   subroutine cmfd_reweight(new_weights)
 
-    use constants,    only: ZERO, ONE
-    use error,        only: warning, fatal_error
-    use mesh_header,  only: StructuredMesh
-    use mesh,         only: count_bank_sites, get_mesh_indices
-    use mpi_interface
-    use search,       only: binary_search
-
     logical, intent(in) :: new_weights ! calcualte new weights
 
     integer :: nx       ! maximum number of cells in x direction
@@ -312,7 +301,7 @@ contains
       ! Check for sites outside of the mesh
       if (master .and. outside) then
         message = "Source sites outside of the CMFD mesh!"
-        call fatal_error(message)
+        call fatal_error()
       end if
 
       ! Have master compute weight factors (watch for 0s)
@@ -341,11 +330,11 @@ contains
       if (source_bank(i) % E < cmfd % egrid(1)) then
         e_bin = 1
         message = 'Source pt below energy grid'
-        if (master) call warning(message)
+        if (master) call warning()
       elseif (source_bank(i) % E > cmfd % egrid(n_groups + 1)) then
         e_bin = n_groups
         message = 'Source pt above energy grid'
-        if (master) call warning(message)
+        if (master) call warning()
       else
         e_bin = binary_search(cmfd % egrid, n_groups + 1, source_bank(i) % E)
       end if
@@ -356,7 +345,7 @@ contains
       ! Check for outside of mesh
       if (.not. in_mesh) then
         message = 'Source site found outside of CMFD mesh'
-        call fatal_error(message)
+        call fatal_error()
       end if
 
       ! Reweight particle
@@ -406,13 +395,11 @@ contains
 
   subroutine cmfd_tally_reset()
 
-    use error,  only: write_message
-
     integer :: i ! loop counter
 
     ! Print message
     message = "CMFD tallies reset"
-    call write_message(message, 7)
+    call write_message(7)
 
     ! Begin loop around CMFD tallies
     do i = 1, n_cmfd_tallies

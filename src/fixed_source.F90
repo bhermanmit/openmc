@@ -1,16 +1,20 @@
 module fixed_source
 
+  use bank_header,     only: Bank, work_index, work
   use constants,       only: ZERO
   use error,           only: write_message
   use global
-  use mpi_interface,   only: master
+  use mpi_interface,   only: master, rank
   use output,          only: header
   use particle_header, only: Particle
   use random_lcg,      only: set_particle_seed
   use source,          only: sample_external_source, copy_source_attributes
+  use source_header,   only: trace, trace_particle, trace_batch, trace_gen
   use state_point,     only: write_state_point
   use string,          only: to_str
   use tally,           only: setup_active_usertallies
+  use tally_class,     only: tallies_on
+  use timer_header,    only: time_active, time_transport, time_tallies
   use tracking,        only: transport
 
   character(2*MAX_LINE_LEN) :: message
@@ -101,7 +105,7 @@ contains
   subroutine initialize_batch()
 
     message = "Simulating batch " // trim(to_str(current_batch)) // "..."
-    call write_message(message, 1)
+    call write_message(1)
 
     ! Reset total starting particle weight used for normalizing tallies
     total_weight = ZERO

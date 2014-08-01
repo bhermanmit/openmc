@@ -6,7 +6,6 @@ module hdf5_summary
   use constants
   use endf,            only: reaction_name
   use geometry_header, only: Cell, Surface, Universe, Lattice
-  use global
   use material_header, only: Material
   use mesh_header,     only: StructuredMesh
   use output_interface

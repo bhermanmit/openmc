@@ -1,5 +1,7 @@
 module geometry_header
 
+  use dict_header, only: DictIntInt
+
   implicit none
 
 !===============================================================================
@@ -71,5 +73,31 @@ module geometry_header
 
   ! array index of universe 0
   integer :: BASE_UNIVERSE
+
+!===============================================================================
+! GLOBAL MEMORY
+!===============================================================================
+
+  ! Size of main geometry arrays
+  integer, save :: n_cells     ! # of cells
+  integer, save :: n_universes ! # of universes
+  integer, save :: n_lattices  ! # of lattices
+  integer, save :: n_surfaces  ! # of surfaces
+
+  ! Main geometry arrays
+  type(Cell),     save, allocatable, target :: cells(:)
+  type(Universe), save, allocatable, target :: universes(:)
+  type(Lattice),  save, allocatable, target :: lattices(:)
+  type(Surface),  save, allocatable, target :: surfaces(:)
+
+  ! Dictionaries to relate id to array index
+  type(DictIntInt), save :: cell_dict
+  type(DictIntInt), save :: universe_dict
+  type(DictIntInt), save :: lattice_dict
+  type(DictIntInt), save :: surface_dict
+
+  ! Flag for enabling cell overlap checking during transport
+  logical                  :: check_overlaps = .false.
+  integer(8), allocatable  :: overlap_check_cnt(:)
 
 end module geometry_header
