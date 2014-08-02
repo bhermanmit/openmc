@@ -3,11 +3,11 @@ module error
   use, intrinsic :: ISO_FORTRAN_ENV
   use constants
   use global,        only: current_batch, current_gen, free_memory
-  use mpi_interface, only: master, mpi_err, MPI_ABORT, MPI_COMM_WORLD
+  use mpi_interface
 
   implicit none
 
-  character(2*MAX_LINE_LEN) :: message
+  character(2*MAX_LINE_LEN), save :: message
   integer :: verbosity = 7
 
 contains
@@ -162,7 +162,6 @@ contains
 
   subroutine write_message(level)
 
-    character(2*MAX_LINE_LEN) :: message
     integer, optional :: level ! verbosity level
 
     integer :: i_start    ! starting position
