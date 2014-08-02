@@ -641,13 +641,13 @@ module tally_class
     score_names(abs(SCORE_NU_SCATTER_YN)) = "Scattering Prod. Rate Moment"
 
     ! Write header block (put labels back in later)
-!   if (t % label == "") then
+    if (self % label == "") then
       call header("TALLY " // trim(to_str(self % id)), unit=UNIT_TALLY, &
            level=3)
-!   else
-!     call header("TALLY " // trim(to_str(t % id)) // ": " &
-!          // trim(t % label), unit=UNIT_TALLY, level=3)
-!   endif
+    else
+      call header("TALLY " // trim(to_str(self % id)) // ": " &
+           // trim(self % label), unit=UNIT_TALLY, level=3)
+    endif
 
     ! WARNING: Admittedly, the logic for moving for printing results is
     ! extremely confusing and took quite a bit of time to get correct. The
