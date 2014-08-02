@@ -71,6 +71,7 @@ module tally_class
       procedure, public :: set_id
       procedure, public :: get_id
       procedure, public :: statistics => tally_statistics
+      procedure, public :: confidence => tally_confidence
       procedure, public :: write => write_tally
       procedure, public :: write_output => write_tally_output
       procedure(score_interface), deferred :: score
@@ -547,6 +548,19 @@ module tally_class
     call self % results % statistics(self % n_realizations) 
 
   end subroutine tally_statistics
+
+!===============================================================================
+! TALLY_CONFIDENCE
+!===============================================================================
+
+  subroutine tally_confidence(self, t_value)
+
+    class(TallyClass), intent(inout) :: self
+    real(8), intent(in) :: t_value
+
+    call self % results % confidence(t_value) 
+
+  end subroutine tally_confidence
 
 !===============================================================================
 ! WRITE_TALLY

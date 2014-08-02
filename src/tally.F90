@@ -3,7 +3,9 @@ module tally
   use constants
   use error,              only: fatal_error, warning, write_message
   use global,             only: path_output, active_batches, k_abs_tra, &
-                                k_col_abs, k_col_tra, run_mode
+                                k_col_abs, k_col_tra, run_mode, &
+                                k_combined
+  use math,               only: t_percentile
   use mpi_interface
   use particle_header,    only: Particle
   use physics,            only: global_tallies
@@ -134,7 +136,40 @@ module tally
     ! Global tallies
     call global_tallies % statistics(n_realizations)
 
+    ! Check for confidence intervals
+    if (confidence_intervals) call tally_confidences()
+
   end subroutine tally_statistics
+
+!===============================================================================
+! TALLY_CONFIDENCES
+!===============================================================================
+
+  subroutine tally_confidences()
+
+    integer :: i
+    real(8) :: alpha   ! significance level for CI
+    real(8) :: t_value ! t-value for confidence intervals
+ 
+    ! Calculate t-value for confidence intervals
+    alpha = ONE - CONFIDENCE_LEVEL
+    t_value = t_percentile(ONE - alpha/TWO, n_realizations - 1)
+
+   ! All tallies
+    do i = 1, n_tallies
+      call tallies(i) % p % confidence(t_value)
+    end do
+
+    ! Global tallies
+    call global_tallies % confidence(t_value)
+
+    ! Adjust combined estimator
+    if (n_realizations > 3) then
+      t_value = t_percentile(ONE - alpha/TWO, n_realizations - 3)
+      k_combined(2) = t_value * k_combined(2)
+    end if
+
+  end subroutine tally_confidences
 
 !===============================================================================
 ! RESET_TALLIES

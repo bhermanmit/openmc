@@ -12,6 +12,7 @@ module tally_result_class
     contains
       procedure, public :: accumulate => accumulate_result
       procedure, public :: add => add_result
+      procedure, public :: confidence => confidence_result
       procedure, public :: get_sum
       procedure, public :: get_sum_sq
       procedure, public :: get_value
@@ -147,6 +148,19 @@ module tally_result_class
          self % sum) / real(n - 1, 8))
 
   end subroutine statistics_result
+
+!===============================================================================
+! CONFIDENCE_RESULT
+!===============================================================================
+
+  elemental subroutine confidence_result(self, t_value)
+
+    class(TallyResultClass), intent(inout) :: self
+    real(8), intent(in) :: t_value
+
+    self % sum_sq = self % sum_sq * t_value
+
+  end subroutine confidence_result
 
 !===============================================================================
 ! RESET_RESULT zeroes out the value and accumulated sum and sum-squared for a
