@@ -266,7 +266,8 @@ module constants
   ! Tally estimator types
   integer, parameter :: &
        ESTIMATOR_ANALOG      = 1, &
-       ESTIMATOR_TRACKLENGTH = 2
+       ESTIMATOR_TRACKLENGTH = 2, &
+       ESTIMATOR_COLLISION   = 3
 
   ! Event types for tallies
   integer, parameter :: &
@@ -318,6 +319,9 @@ module constants
 
   ! Tally map bin finding
   integer, parameter :: NO_BIN_FOUND = -1
+
+  ! Material tally
+  integer, parameter :: MATERIAL_TOTAL = -1
 
   ! Tally filter and map types
   integer, parameter :: N_FILTER_TYPES = 8

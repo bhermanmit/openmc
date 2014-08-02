@@ -26,7 +26,7 @@ module tally_class
   type, abstract, public :: TallyClass
     private
     character(len=MAX_LINE_LEN) :: label = ""
-    character(len=MAX_WORD_LEN) :: estimator = ""
+    integer :: estimator ! type of tally estimator
     integer :: id ! ID of tally
     integer :: i_filter = 1  ! Current filter
     integer :: i_score = 1  ! Current score
@@ -37,9 +37,9 @@ module tally_class
     integer :: total_score_bins = 0 ! Total number of score bins
     integer :: total_filter_bins = 1 ! Total number of filter bins
     integer :: find_filter(N_FILTER_TYPES)
-    integer :: nuclide_bins(1) = -1
     integer, allocatable :: stride(:)
     integer, allocatable :: matching_bins(:)
+    integer, allocatable :: nuclides(:)
     logical :: has_eout_filter = .false.
     logical :: has_mesh_filter = .false.
     type(MeshFilterClass), pointer :: mesh_filter => null()
@@ -53,6 +53,7 @@ module tally_class
       procedure, public :: allocate_filters
       procedure :: allocate_results
       procedure, public :: allocate_scores
+      procedure, public :: allocate_nuclides
       procedure, public :: destroy => tally_destroy
       procedure, public :: finish_setup
       procedure :: get_filter
@@ -66,6 +67,8 @@ module tally_class
       procedure, public :: get_n_realizations
       procedure :: set_filter_index
       procedure :: setup_filter_indices
+      procedure, public :: get_nuclide_bin
+      procedure, public :: set_nuclide_bin
       procedure, public :: reset => tally_reset
       procedure :: setup_stride
       procedure, public :: set_id
@@ -276,6 +279,20 @@ module tally_class
   end subroutine allocate_scores
 
 !===============================================================================
+! ALLOCATE_NUCLIDES allocates the nuclides array
+!===============================================================================
+
+  subroutine allocate_nuclides(self, n_nuclides)
+
+    class(TallyClass), intent(inout) :: self
+    integer, intent(in) :: n_nuclides
+
+    self % total_nuclide_bins = n_nuclides
+    allocate(self % nuclides(n_nuclides))
+
+  end subroutine allocate_nuclides
+
+!===============================================================================
 ! TALLY_DESTROY frees all memory used by TallyClass
 !===============================================================================
 
@@ -324,7 +341,8 @@ module tally_class
 
     ! Set up stride array
     call self % setup_stride()
-
+print *, 'Nuclides:'
+print *, self % nuclides
   end subroutine finish_setup
 
 !===============================================================================
@@ -472,6 +490,34 @@ module tally_class
   end function get_n_realizations
 
 !===============================================================================
+! GET_NUCLIDE_BIN
+!===============================================================================
+
+  function get_nuclide_bin(self, i) result(bin)
+
+    class(TallyClass) :: self
+    integer :: i
+    integer :: bin
+
+    bin = self % nuclides(i)
+
+  end function get_nuclide_bin
+
+!===============================================================================
+! SET_NUCLIDE_BIN
+!===============================================================================
+
+  subroutine set_nuclide_bin(self, i, bin)
+
+    class(TallyClass), intent(inout) :: self
+    integer, intent(in) :: i
+    integer, intent(in) :: bin
+
+    self % nuclides(i) = bin
+
+  end subroutine set_nuclide_bin
+
+!===============================================================================
 ! SETUP_STRIDE
 !===============================================================================
 
@@ -576,7 +622,7 @@ module tally_class
 
     ! Write tally information
     write(unit, *) "Tally ID:", self % id
-    write(unit, *) "  Estimator:", trim(self % estimator)
+    write(unit, *) "  Estimator:", self % estimator
     write(unit, *) "  Number of realizations:", self % n_realizations
     write(unit, *) "  Filter Information:"
 
@@ -732,7 +778,7 @@ module tally_class
       if (self % n_filters > 0) indent = indent + 2
       do n = 1, self % total_nuclide_bins
         ! Write label for nuclide
-        i_nuclide = self % nuclide_bins(n)
+        i_nuclide = self % nuclides(n)
         if (i_nuclide == -1) then
           write(UNIT=UNIT_TALLY, FMT='(1X,2A,1X,A)') repeat(" ", indent), &
                "Total Material"
@@ -876,7 +922,7 @@ module tally_class
     allocate(self)
 
     ! Set the tally type
-    self % estimator = 'analog'
+    self % estimator = ESTIMATOR_ANALOG
 
   end function analog_tally_init
 
@@ -1000,7 +1046,7 @@ module tally_class
     allocate(self)
 
     ! Set the tally type
-    self % estimator = 'tracklength'
+    self % estimator = ESTIMATOR_TRACKLENGTH
 
   end function tracklength_tally_init
 
@@ -1144,7 +1190,7 @@ module tally_class
     allocate(self)
 
     ! Set the tally type
-    self % estimator = 'collision'
+    self % estimator = ESTIMATOR_COLLISION
 
   end function collision_tally_init
 

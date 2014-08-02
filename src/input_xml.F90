@@ -2028,6 +2028,9 @@ contains
       end if
       call t % set_id(int_scalar)
 
+      ! =======================================================================
+      ! READ DATA FOR FILTERS
+
       ! Get pointer list to XML <filter> and get number of filters
       call get_node_list(node_tal, "filter", node_filt_list)
       n_filters = get_list_size(node_filt_list)
@@ -2129,6 +2132,9 @@ contains
         end do READ_FILTERS
       end if
 
+      ! =======================================================================
+      ! READ DATA FOR SCORES
+
       ! Process tally scores
       if (check_for_node(node_tal, "scores")) then
 
@@ -2180,6 +2186,94 @@ contains
         ! Error if there are no scores specified for a tally
         message = "No <scores> specified on tally "
         call fatal_error()
+
+      end if
+
+      ! =======================================================================
+      ! READ DATA FOR NUCLIDES
+
+      if (check_for_node(node_tal, "nuclides")) then
+
+        ! Allocate a temporary string array for nuclides and copy values over
+        allocate(sarray(get_arraysize_string(node_tal, "nuclides")))
+        call get_node_array(node_tal, "nuclides", sarray)
+
+        if (trim(sarray(1)) == 'all') then
+          ! Handle special case <nuclides>all</nuclides>
+          call t % allocate_nuclides(n_nuclides_total + 1)
+
+          ! Set bins to 1, 2, 3, ..., n_nuclides_total, -1
+          do j = 1, n_nuclides_total
+            call t % set_nuclide_bin(j, j)
+            call t % set_nuclide_bin(n_nuclides_total + 1, MATERIAL_TOTAL)
+          end do
+
+        else
+
+          ! Any other case, e.g. <nuclides>U-235 Pu-239</nuclides>
+          n_words = get_arraysize_string(node_tal, "nuclides")
+          call t % allocate_nuclides(n_words)
+          do j = 1, n_words
+            ! Check if total material was specified
+            if (trim(sarray(j)) == 'total') then
+              call t % set_nuclide_bin(j, MATERIAL_TOTAL)
+              cycle
+            end if
+
+            ! Check if xs specifier was given
+            if (ends_with(sarray(j), 'c')) then
+              word = sarray(j)
+            else
+              if (default_xs == '') then
+                ! No default cross section specified, search through nuclides
+                pair_list => nuclide_dict % keys()
+                do while (associated(pair_list))
+                  if (starts_with(pair_list % key, &
+                       sarray(j))) then
+                    word = pair_list % key(1:150)
+                    exit
+                  end if
+
+                  ! Advance to next
+                  pair_list => pair_list % next
+                end do
+
+                ! Check if no nuclide was found
+                if (.not. associated(pair_list)) then
+                  message = "Could not find the nuclide " // trim(&
+                       sarray(j)) // " specified in tally " &
+                       // trim(to_str(t % get_id())) // " in any material."
+                  call fatal_error()
+                end if
+                deallocate(pair_list)
+              else
+                ! Set nuclide to default xs
+                word = trim(sarray(j)) // "." // default_xs
+              end if
+            end if
+
+            ! Check to make sure nuclide specified is in problem
+            if (.not. nuclide_dict % has_key(word)) then
+              message = "The nuclide " // trim(word) // " from tally " // &
+                   trim(to_str(t % get_id())) // " is not present in any material."
+              call fatal_error()
+            end if
+
+            ! Set bin to index in nuclides array
+            call t % set_nuclide_bin(j, nuclide_dict % get_key(word))
+          end do
+
+        end if
+
+        ! Deallocate temporary string array
+        deallocate(sarray)
+
+      else
+
+        ! No <nuclides> were specified -- create only one bin will be added
+        ! for the total material.
+        call t % allocate_nuclides(1)
+        call t % set_nuclide_bin(1, MATERIAL_TOTAL)
 
       end if
 
