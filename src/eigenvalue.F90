@@ -18,14 +18,14 @@ module eigenvalue
                           print_batch_keff, print_generation
   use particle_header, only: Particle
   use physics,      only: keff, keff_std, survival_biasing, weight_cutoff, &
-                          weight_survive
+                          weight_survive, global_tallies
   use random_lcg,   only: prn, set_particle_seed, prn_skip
   use search,       only: binary_search
   use source,       only: get_source_particle
   use state_point,  only: write_state_point, write_source_point
   use string,       only: to_str
   use tally,        only: setup_active_usertallies, synchronize_tallies
-  use tally_class,  only: global_tallies, confidence_intervals, n_realizations, &
+  use tally_class,  only: confidence_intervals, n_realizations, &
                           tallies_on, total_weight
   use timer_header, only: time_inactive, time_transport, time_active, &
                           time_bank, time_tallies, time_bank_sample, &
@@ -55,9 +55,6 @@ contains
 
     ! Display column titles
     if(master) call print_columns()
-
-    ! Set pointers in particle to global memory location
-    call set_particle_pointers(p)
 
     ! Turn on inactive timer
     call time_inactive % start()
@@ -120,28 +117,6 @@ contains
     call p % clear()
 
   end subroutine run_eigenvalue
-
-!===============================================================================
-! SET_PARTICLE_POINTERS
-!===============================================================================
-
-  subroutine set_particle_pointers(p)
-
-    type(Particle), intent(inout) :: p
-
-    ! Associate all pointers to global memory location
-    p % fission_bank => fission_bank
-    p % keff => keff
-    p % material_xs => material_xs
-    p % micro_xs => micro_xs
-    p % nuclides => nuclides
-    p % n_bank => n_bank
-    p % sab_tables => sab_tables
-    p % survival_biasing => survival_biasing
-    p % weight_cutoff => weight_cutoff
-    p % weight_survive => weight_survive
-
-  end subroutine set_particle_pointers
 
 !===============================================================================
 ! INITIALIZE_BATCH

@@ -1,9 +1,12 @@
 module energy_grid
 
-  use ace_header,       only: Nuclide, e_grid, n_grid, nuclides
+  use ace_header,       only: Nuclide, e_grid, n_grid, nuclides, &
+                              n_nuclides_total
   use constants,        only: MAX_LINE_LEN
   use error,            only: write_message, message
   use list_header,      only: ListReal
+
+  implicit none
 
 contains
 

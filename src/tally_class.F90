@@ -1,6 +1,8 @@
 module tally_class
 
-  use ace_header,         only: Nuclide, Reaction, XSListing
+  use ace_header,         only: Nuclide, Reaction, XSListing, nuclides, &
+                                xs_listings, material_xs
+  use bank_header,        only: fission_bank, n_bank
   use endf,               only: reaction_name
   use constants
   use dict_header,        only: DictIntInt
@@ -8,7 +10,7 @@ module tally_class
   use mesh,               only: bin_to_mesh_indices
   use particle_header
   use physics,            only: sample_nuclide, sample_fission, &
-                                sample_fission_energy
+                                sample_fission_energy, keff
   use random_lcg,         only: prn_set_stream, STREAM_TRACKING, &
                                 STREAM_TALLIES
   use set_header,         only: SetInt
@@ -154,12 +156,6 @@ module tally_class
 !$omp&              active_collision_tallies, active_current_tallies, &
 !$omp&              active_tallies)
 
-  ! Global tallies
-  !   1) collision estimate of k-eff
-  !   2) track-length estimate of k-eff
-  !   4) absorption estimate of k-eff
-  !   3) leakage fraction
-  type(TallyResultClass), save, public, target :: global_tallies(N_GLOBAL_TALLIES) ! keff
   integer, save, public :: n_realizations = 0 ! # of independent realizations
 
   ! Tally map structure
@@ -569,11 +565,9 @@ module tally_class
 ! WRITE_TALLY_OUTPUT
 !===============================================================================
 
-  subroutine write_tally_output(self, nuclides, xs_listings)
+  subroutine write_tally_output(self)
 
     class(TallyClass), intent(inout) :: self
-    type(Nuclide), intent(in) :: nuclides(:)
-    type(XSListing), intent(in) :: xs_listings(:)
 
     integer :: j            ! level in tally hierarchy
     integer :: k            ! loop index for scoring bins
@@ -863,7 +857,7 @@ module tally_class
     real(8) :: score
 
     ! Loop around particles in bank
-    do k = p % n_bank - int(p % nu, 8) + 1, p % n_bank
+    do k = n_bank - int(p % nu, 8) + 1, n_bank
 
       ! Check to create particle
       if (.not. associated(p_fiss)) allocate(p_fiss)
@@ -871,16 +865,16 @@ module tally_class
 
       ! Copy bank attributes to fake fission particle
       p_fiss % last_E = p % last_E
-      p_fiss % E = p % fission_bank(k) % E
-      p_fiss % wgt = p % fission_bank(k) % wgt
-      p_fiss % coord0 % xyz = p % fission_bank(k) % xyz
+      p_fiss % E = fission_bank(k) % E
+      p_fiss % wgt = fission_bank(k) % wgt
+      p_fiss % coord0 % xyz = fission_bank(k) % xyz
 
       ! Get filter index
       call self % setup_filter_indices(p_fiss)
       filter_index = self % get_filter_index()
 
       ! Get standard analog score
-      score = p % keff * self % scores(score_index) % p % get_weight(p_fiss)
+      score = keff * self % scores(score_index) % p % get_weight(p_fiss)
 
       ! Add score to results array
       call self % results(score_index, filter_index) % add(score)
@@ -926,7 +920,7 @@ module tally_class
 
         else
 
-          score = p % keff * p % wgt_bank
+          score = keff * p % wgt_bank
 
         end if
 
@@ -1019,7 +1013,7 @@ module tally_class
         type is (NuFissionScoreClass)
 
           ! If no fission macro, don't score
-          if (p % material_xs % fission == ZERO) cycle
+          if (material_xs % fission == ZERO) cycle
 
           ! Check to see if we need to sample a fission reaction
           if (.not. associated(p_fiss)) p_fiss => sample_fake_fission(p)
@@ -1036,7 +1030,7 @@ module tally_class
         call self % setup_filter_indices(p_score)
 
         ! Get tally score response and weight
-        response = self % scores(j) % p % get_response(p_score)
+        response = self % scores(j) % p % get_response()
         weight = self % scores(j) % p % get_weight(p_score)
 
         ! Get number of surface crossings
@@ -1075,7 +1069,7 @@ module tally_class
 
         ! Calculate standard tracklength score
         flux = self % get_flux(p_score)
-        response = self % scores(j) % p % get_response(p_score)
+        response = self % scores(j) % p % get_response()
         weight = self % scores(j) % p % get_weight(p_score)
         score = weight * response * flux
 
@@ -1119,12 +1113,11 @@ module tally_class
 ! COLLISION_GET_FLUX gets the flux estimator for a CollisionTallyClass
 !===============================================================================
 
-  function collision_get_flux(p) result(flux)
+  function collision_get_flux() result(flux)
 
-    type(Particle) :: p
     real(8) :: flux
 
-    flux = ONE/p % material_xs % total
+    flux = ONE/material_xs % total
 
   end function collision_get_flux
 
@@ -1159,7 +1152,7 @@ module tally_class
         type is (NuFissionScoreClass)
 
           ! If no fission macro, don't score
-          if (p % material_xs % fission == ZERO) cycle
+          if (material_xs % fission == ZERO) cycle
 
           ! Check to see if we need to sample a fission reaction
           if (.not. associated(p_fiss)) p_fiss => sample_fake_fission(p)
@@ -1170,8 +1163,8 @@ module tally_class
       end if
 
       ! Calculate score
-      flux = self % get_flux(p_score)
-      response = self % scores(j) % p % get_response(p_score)
+      flux = self % get_flux()
+      response = self % scores(j) % p % get_response()
       weight = self % scores(j) % p % get_weight(p_score)
       score = weight * response * flux
 
@@ -1225,10 +1218,10 @@ module tally_class
     i_nuclide_rxn = sample_nuclide(p_fiss, 'fission')
 
     ! Sample a fake fission
-    call sample_fission(p_fiss, i_nuclide_rxn, i_reaction)
+    call sample_fission(i_nuclide_rxn, i_reaction)
 
     ! Set up pointers and get fission energy
-    nuc => p % nuclides(i_nuclide_rxn)
+    nuc => nuclides(i_nuclide_rxn)
     rxn => nuc % reactions(i_reaction)
     p_fiss % E = sample_fission_energy(nuc, rxn, p_fiss % last_E)
 

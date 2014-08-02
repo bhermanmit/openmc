@@ -1,12 +1,12 @@
 module tally
 
-  use ace_header,         only: nuclides, xs_listings
   use constants
   use error,              only: fatal_error, warning, write_message
   use global,             only: path_output, active_batches, k_abs_tra, &
                                 k_col_abs, k_col_tra, run_mode
   use mpi_interface
   use particle_header,    only: Particle
+  use physics,            only: global_tallies
   use string,             only: lower_case
   use tally_class
   use tally_filter_class
@@ -290,7 +290,7 @@ module tally
 
     ! Loop around tallies and write
     do i = 1, n_tallies
-      call tallies(i) % p % write_output(nuclides, xs_listings)
+      call tallies(i) % p % write_output()
     end do
 
     ! Close tally file

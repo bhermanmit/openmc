@@ -10,10 +10,10 @@ module geometry
   use material_header,        only: materials
   use particle_header,        only: LocalCoord, deallocate_coord, Particle
   use particle_restart_write, only: write_particle_restart
+  use physics,                only: global_tallies
   use source_header,          only: trace
   use string,                 only: to_str
-  use tally_class,            only: tallies_on, active_current_tallies, &
-                                    global_tallies
+  use tally_class,            only: tallies_on, active_current_tallies
 
   implicit none
 
@@ -193,12 +193,8 @@ contains
           ! AT LOWEST UNIVERSE, TERMINATE SEARCH
 
           ! set material
-          p % last_material => p % material
-          if (c % material == MATERIAL_VOID) then
-            p % material => null()
-          else
-            p % material => materials(c % material)
-          end if
+          p % last_material = p % material
+          p % material = c % material
 
         elseif (c % type == CELL_FILL) then
           ! ====================================================================
@@ -295,12 +291,8 @@ contains
               ! the material specified for the outside
 
               outside_lattice = .true.
-              p % last_material => p % material
-              if (c % material == MATERIAL_VOID) then
-                p % material => null()
-              else
-                p % material => materials(c % material)
-              end if
+              p % last_material = p % material
+              p % material = c % material
 
               ! We'll still make a new coordinate for the particle, as 
               ! distance_to_boundary will still need to track through lattice

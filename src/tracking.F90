@@ -10,15 +10,14 @@ module tracking
   use geometry_header, only: Universe, BASE_UNIVERSE, cells, check_overlaps
   use mpi_interface,   only: master
   use particle_header, only: LocalCoord, Particle
-  use physics,         only: collision
+  use physics,         only: collision, global_tallies
   use random_lcg,      only: prn
   use source_header,   only: trace
   use string,          only: to_str
   use tally,           only: score_analog_tallies, score_tracklength_tallies, &
                              score_collision_tallies
-  use tally_class,     only: active_tracklength_tallies, global_tallies, &
-                             active_collision_tallies, active_analog_tallies, &
-                             total_weight
+  use tally_class,     only: active_tracklength_tallies, total_weight, &
+                             active_collision_tallies, active_analog_tallies
   use timer_header,    only: time_inactive, time_transport
   use track_output,    only: initialize_particle_track, write_particle_track, &
                              finalize_particle_track
@@ -92,7 +91,7 @@ contains
       ! material is the same as the last material and the energy of the
       ! particle hasn't changed, we don't need to lookup cross sections again.
 
-      if (.not.associated(p % material, p % last_material)) call calculate_xs(p)
+      if (p % material /= p % last_material) call calculate_xs(p)
 
       ! Find the distance to the nearest boundary
       call distance_to_boundary(p, d_boundary, surface_crossed, lattice_crossed)
@@ -115,7 +114,7 @@ contains
       end do
 
       ! Score track-length tallies
-      p % dist => distance
+      p % dist = distance
       if (active_tracklength_tallies % size() > 0) &
            call score_tracklength_tallies(p)
 
@@ -190,7 +189,7 @@ contains
 
         ! Set last material to none since cross sections will need to be
         ! re-evaluated
-        p % last_material => null()
+        p % last_material = NONE
 
         ! Set all uvws to base level -- right now, after a collision, only the
         ! base level uvws are changed

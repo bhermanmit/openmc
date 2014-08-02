@@ -69,29 +69,18 @@ module particle_header
     integer    :: event_MT      ! reaction MT
 
     ! How far did the neutron travel
-    real(8), pointer :: dist
-
-    ! Pointer to global memory
-    type(Bank), pointer :: fission_bank(:) => null()
-    type(MaterialMacroXS), pointer :: material_xs => null()
-    type(NuclideMicroXS), pointer :: micro_xs(:) => null()
-    type(Nuclide), pointer :: nuclides(:) => null()
-    type(SAlphaBeta), pointer :: sab_tables(:) => null()
-    logical, pointer :: survival_biasing => null()
-    real(8), pointer :: weight_survive => null()
-    real(8), pointer :: weight_cutoff => null()
+    real(8) :: dist
 
     ! Post-collision physical data
     integer :: nu ! number of fission sites banked
-    integer(8), pointer :: n_bank ! current number of fission sites banked
+!   integer(8) :: n_bank ! current number of fission sites banked
     real(8) :: wgt_bank ! weight of fission sites banked
-    real(8), pointer :: keff ! keff used in physics module
 
     ! Indices for various arrays
     integer    :: surface       ! index for surface particle is on
     integer    :: cell_born     ! index for cell particle was born in
-    type(Material), pointer :: material => null() ! current material
-    type(Material), pointer :: last_material => null() ! current material
+    integer    :: material      ! current material
+    integer    :: last_material ! current material
 
     ! Statistical data
     integer    :: n_collision   ! # of collisions
@@ -147,8 +136,8 @@ contains
     ! clear attributes
     this % surface       = NONE
     this % cell_born     = NONE
-    this % material      => null()
-    this % last_material => null()
+    this % material      = NONE
+    this % last_material = NONE
     this % wgt           = ONE
     this % last_wgt      = ONE
     this % absorb_wgt    = ZERO
@@ -189,15 +178,11 @@ contains
     this % last_uvw = p % last_uvw
     this % last_wgt = p % last_wgt
     this % last_E = p % last_E
-    this % dist => p % dist
-    this % material_xs => p % material_xs
-    this % micro_xs => p % micro_xs
-    this % nuclides => p % nuclides
-    this % sab_tables => p % sab_tables
+    this % dist = p % dist
     this % surface = p % surface
     this % cell_born = p % cell_born
-    this % material => p % material
-    this % last_material => p % last_material
+    this % material = p % material
+    this % last_material = p % last_material
 
   end subroutine copy_particle
 

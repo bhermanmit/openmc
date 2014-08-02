@@ -25,10 +25,10 @@ module output
   use mpi_interface,   only: master, n_procs
   use particle_header, only: LocalCoord, Particle
   use physics,         only: keff, keff_std, survival_biasing, weight_cutoff, &
-                             weight_survive
+                             weight_survive, global_tallies
   use plot_header
   use string,          only: upper_case, to_str
-  use tally_class,     only: global_tallies, n_realizations
+  use tally_class,     only: n_realizations
   use timer_header
 
   implicit none
