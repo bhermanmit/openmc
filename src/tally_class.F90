@@ -40,7 +40,6 @@ module tally_class
     integer :: nuclide_bins(1) = -1
     integer, allocatable :: stride(:)
     integer, allocatable :: matching_bins(:)
-    integer, allocatable :: moment_order(:)
     logical :: has_eout_filter = .false.
     logical :: has_mesh_filter = .false.
     type(MeshFilterClass), pointer :: mesh_filter => null()
@@ -62,7 +61,9 @@ module tally_class
       procedure :: get_n_filters
       procedure :: get_total_score_bins
       procedure :: get_total_filter_bins
+      procedure :: get_total_nuclide_bins
       procedure, public :: get_results_pointer
+      procedure, public :: get_n_realizations
       procedure :: set_filter_index
       procedure :: setup_filter_indices
       procedure, public :: reset => tally_reset
@@ -270,8 +271,6 @@ module tally_class
 
     self % n_scores = n_scores
     allocate(self % scores(n_scores))
-    allocate(self % moment_order(n_scores))
-    self % moment_order = 0
  
   end subroutine allocate_scores
 
@@ -418,6 +417,18 @@ module tally_class
 
   end function get_total_filter_bins
 
+!===============================================================================
+! GET_TOTAL_NUCLIDE_BINS
+!===============================================================================
+
+  function get_total_nuclide_bins(self) result(total_nuclide_bins)
+
+    class(TallyClass) :: self
+    integer :: total_nuclide_bins
+
+    total_nuclide_bins = self % total_nuclide_bins
+
+  end function get_total_nuclide_bins
 
 !===============================================================================
 ! GET_FILTERS
@@ -445,6 +456,19 @@ module tally_class
     results => self % results
 
   end subroutine get_results_pointer
+
+!===============================================================================
+! GET_N_REALIZATIONS
+!===============================================================================
+
+  function get_n_realizations(self) result(n_realizations)
+
+    class(TallyClass) :: self
+    integer :: n_realizations
+
+    n_realizations = self % n_realizations
+
+  end function get_n_realizations
 
 !===============================================================================
 ! SETUP_STRIDE
@@ -711,7 +735,8 @@ module tally_class
           score_index = score_index + 1
           select case(self % scores(k) % p % get_type())
           case (SCORE_SCATTER_N, SCORE_NU_SCATTER_N)
-            score_name = 'P' // trim(to_str(self % moment_order(k))) // " " // &
+            score_name = 'P' // trim(to_str(self % scores(k) % p % &
+                get_moment_order())) // " " // &
               score_names(abs(self % scores(k) % p % get_type()))
             write(UNIT=UNIT_TALLY, FMT='(1X,2A,1X,A,"+/- ",A)') &
               repeat(" ", indent), score_name, &
@@ -719,7 +744,7 @@ module tally_class
               trim(to_str(self % results(score_index,filter_index) % get_sum_sq()))
           case (SCORE_SCATTER_PN, SCORE_NU_SCATTER_PN)
             score_index = score_index - 1
-            do n_order = 0, self % moment_order(k)
+            do n_order = 0, self % scores(k) % p % get_moment_order()
               score_index = score_index + 1
               score_name = 'P' // trim(to_str(n_order)) //  " " //&
                 score_names(abs(self % scores(k) % p % get_type()))
@@ -728,11 +753,11 @@ module tally_class
                 to_str(self % results(score_index,filter_index) % get_sum()), &
                 trim(to_str(self % results(score_index,filter_index) % get_sum_sq()))
             end do
-            k = k + self % moment_order(k)
+            k = k + self % scores(k) % p % get_moment_order()
           case (SCORE_SCATTER_YN, SCORE_NU_SCATTER_YN, SCORE_FLUX_YN, &
                 SCORE_TOTAL_YN)
             score_index = score_index - 1
-            do n_order = 0, self % moment_order(k)
+            do n_order = 0, self % scores(k) % p % get_moment_order()
               do nm_order = -n_order, n_order
                 score_index = score_index + 1
                 score_name = 'Y' // trim(to_str(n_order)) // ',' // &
@@ -743,7 +768,7 @@ module tally_class
                   trim(to_str(self % results(score_index,filter_index) % get_sum_sq()))
               end do
             end do
-            k = k + (self % moment_order(k) + 1)**2 - 1
+            k = k + (self % scores(k) % p % get_moment_order() + 1)**2 - 1
           case default
             if (self % scores(k) % p % get_type() > 0) then
               score_name = reaction_name(self % scores(k) % p % get_type())

@@ -23,6 +23,8 @@ module tally_filter_class
       procedure, public :: get_int_bin
       procedure, public :: get_real_bin
       procedure, public :: set_int_bin
+      procedure, public :: get_real_bins_pointer
+      procedure, public :: get_int_bins_pointer
       procedure, public :: get_type => get_tally_filter_type
       procedure, public :: destroy => tally_filter_destroy
       procedure, public :: write => write_filter 
@@ -179,6 +181,32 @@ module tally_filter_class
     real_bin = self % real_bins(bin)
 
   end function get_real_bin
+
+!===============================================================================
+! GET_INT_BINS_POINTER
+!===============================================================================
+
+  function get_int_bins_pointer(self) result(int_bins)
+
+    class(TallyFilterClass), target :: self
+    integer, pointer :: int_bins(:)
+
+    int_bins => self % int_bins
+
+  end function get_int_bins_pointer
+
+!===============================================================================
+! GET_REAL_BINS_POINTER
+!===============================================================================
+
+  function get_real_bins_pointer(self) result(real_bins)
+
+    class(TallyFilterClass), target :: self
+    real(8), pointer :: real_bins(:)
+
+    real_bins => self % real_bins
+
+  end function get_real_bins_pointer
 
 !===============================================================================
 ! TALLY_FILTER_DESTROY deallocates all members of TallyFilterClass

@@ -11,10 +11,13 @@ module tally_score_class
   type, abstract, public :: TallyScoreClass
     private
     integer :: type
+    integer :: moment_order = 0
     real(8), pointer :: flux
     real(8), pointer :: response
     contains
       procedure, public :: get_type => get_score_type
+      procedure, public :: get_moment_order
+      procedure, public :: set_moment_order
       procedure, public :: write => write_score
       procedure(score_match_interface), deferred, nopass :: score_match
       procedure(get_weight_interface), deferred, nopass :: get_weight
@@ -87,6 +90,32 @@ module tally_score_class
     type = self % type
 
   end function get_score_type
+
+!===============================================================================
+! GET_MOMENT_ORDER
+!===============================================================================
+
+  function get_moment_order(self) result(moment_order)
+
+    class(TallyScoreClass) :: self
+    integer :: moment_order
+
+    moment_order = self % moment_order
+
+  end function get_moment_order
+
+!===============================================================================
+! SET_MOMENT_ORDER
+!===============================================================================
+
+  subroutine set_moment_order(self, moment_order)
+
+    class(TallyScoreClass), intent(inout) :: self
+    integer, intent(in) :: moment_order
+
+    self % moment_order = moment_order
+
+  end subroutine set_moment_order
 
 !===============================================================================
 ! TALLY_SCORE_DESTROY deallocates all members of TallyScoreClass

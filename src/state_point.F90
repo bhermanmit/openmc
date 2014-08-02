@@ -22,7 +22,8 @@ module state_point
   use mpi_interface
   use output_interface
   use random_lcg,         only: seed
-  use tally_class,        only: reduce_tallies, n_tallies
+  use tally_class,        only: reduce_tallies, n_tallies, TallyClass, tallies
+  use tally_filter_class, only: TallyFilterClass
 
   implicit none
 
@@ -40,6 +41,10 @@ contains
     integer                 :: i
     integer                 :: j
     integer, allocatable    :: temp_array(:)
+    integer, pointer :: int_bins(:)
+    real(8), pointer :: real_bins(:)
+    class(TallyClass), pointer :: t => null()
+    class(TallyFilterClass), pointer :: f => null()
 
     ! Set filename for state point
     filename = trim(path_output) // 'statepoint.' // &
@@ -152,82 +157,91 @@ contains
       call sp % write_data(n_tallies, "n_tallies", group="tallies")
 
       ! Write all tally information except results
-!      TALLY_METADATA: do i = 1, n_tallies
-!        !Get pointer to tally
-!        t => tallies(i)
-!
-!        ! Write id
-!        call sp % write_data(t % id, "id", group="tallies/tally" // to_str(i))
-!
-!        ! Write number of realizations
-!        call sp % write_data(t % n_realizations, "n_realizations", &
-!             group="tallies/tally" // to_str(i))
-!
-!        ! Write size of each tally
-!        call sp % write_data(t % total_score_bins, "total_score_bins", &
-!             group="tallies/tally" // to_str(i))
-!        call sp % write_data(t % total_filter_bins, "total_filter_bins", &
-!             group="tallies/tally" // to_str(i))
-!
-!        ! Write number of filters
-!        call sp % write_data(t % n_filters, "n_filters", &
-!             group="tallies/tally" // to_str(i))
-!
-!        ! Write filter information
-!        FILTER_LOOP: do j = 1, t % n_filters
-!
-!          ! Write type of filter
-!          call sp % write_data(t % filters(j) % type, "type", &
-!               group="tallies/tally" // trim(to_str(i)) // "/filter" // to_str(j))
-!
-!          ! Write number of bins for this filter
-!          call sp % write_data(t % filters(j) % n_bins, "n_bins", &
-!               group="tallies/tally" // trim(to_str(i)) // "/filter" // to_str(j))
-!
-!          ! Write bins
-!          if (t % filters(j) % type == FILTER_ENERGYIN .or. &
-!              t % filters(j) % type == FILTER_ENERGYOUT) then
-!            call sp % write_data(t % filters(j) % real_bins, "bins", &
-!                 group="tallies/tally" // trim(to_str(i)) // "/filter" // to_str(j), &
-!                 length=size(t % filters(j) % real_bins))
-!          else
-!            call sp % write_data(t % filters(j) % int_bins, "bins", &
-!                 group="tallies/tally" // trim(to_str(i)) // "/filter" // to_str(j), &
-!                 length=size(t % filters(j) % int_bins))
-!          end if
-!
-!        end do FILTER_LOOP
-!
-!        ! Write number of nuclide bins
-!        call sp % write_data(t % n_nuclide_bins, "n_nuclide_bins", &
-!             group="tallies/tally" // to_str(i))
-!
-!        ! Set up nuclide bin array and then write
-!        allocate(temp_array(t % n_nuclide_bins))
-!        NUCLIDE_LOOP: do j = 1, t % n_nuclide_bins
-!          if (t % nuclide_bins(j) > 0) then
-!            temp_array(j) = nuclides(t % nuclide_bins(j)) % zaid
-!          else
-!            temp_array(j) = t % nuclide_bins(j)
-!          end if
-!        end do NUCLIDE_LOOP
-!        call sp % write_data(temp_array, "nuclide_bins", &
-!             group="tallies/tally" // to_str(i), length=t % n_nuclide_bins)
-!        deallocate(temp_array)
-!
-!        ! Write number of score bins, score bins, and moment order
-!        call sp % write_data(t % n_score_bins, "n_score_bins", &
-!             group="tallies/tally" // to_str(i))
+      TALLY_METADATA: do i = 1, n_tallies
+        !Get pointer to tally
+        t => tallies(i) % p
+
+        ! Write id
+        call sp % write_data(t % get_id(), "id", group="tallies/tally" // to_str(i))
+
+        ! Write number of realizations
+        call sp % write_data(t % get_n_realizations(), "n_realizations", &
+             group="tallies/tally" // to_str(i))
+
+        ! Write size of each tally
+        call sp % write_data(t % get_total_score_bins(), "total_score_bins", &
+             group="tallies/tally" // to_str(i))
+        call sp % write_data(t % get_total_filter_bins(), "total_filter_bins", &
+             group="tallies/tally" // to_str(i))
+
+        ! Write number of filters
+        call sp % write_data(t % get_n_filters(), "n_filters", &
+             group="tallies/tally" // to_str(i))
+
+        ! Write filter information
+        FILTER_LOOP: do j = 1, t % get_n_filters()
+
+          ! Get pointer to filter
+          f => t % get_filter(j)
+
+          ! Write type of filter
+          call sp % write_data(f % get_type(), "type", &
+               group="tallies/tally" // trim(to_str(i)) // "/filter" // to_str(j))
+
+          ! Write number of bins for this filter
+          call sp % write_data(f % get_n_bins(), "n_bins", &
+               group="tallies/tally" // trim(to_str(i)) // "/filter" // to_str(j))
+
+          ! Write bins
+          if (f % get_type() == FILTER_ENERGYIN .or. &
+              f % get_type() == FILTER_ENERGYOUT) then
+            real_bins => f % get_real_bins_pointer()
+            call sp % write_data(real_bins, "bins", &
+                 group="tallies/tally" // trim(to_str(i)) // "/filter" // to_str(j), &
+                 length=size(real_bins))
+            real_bins => null()
+          else
+            int_bins => f % get_int_bins_pointer()
+            call sp % write_data(int_bins, "bins", &
+                 group="tallies/tally" // trim(to_str(i)) // "/filter" // to_str(j), &
+                 length=size(int_bins))
+            int_bins => null()
+          end if
+
+        end do FILTER_LOOP
+
+        ! Write number of nuclide bins
+        call sp % write_data(t % get_total_nuclide_bins(), "n_nuclide_bins", &
+             group="tallies/tally" // to_str(i))
+
+        ! Set up nuclide bin array and then write
+!       allocate(temp_array(t % get_total_nuclide_bins()))
+!       NUCLIDE_LOOP: do j = 1, t % n_nuclide_bins
+!         if (t % nuclide_bins(j) > 0) then
+!           temp_array(j) = nuclides(t % nuclide_bins(j)) % zaid
+!         else
+!           temp_array(j) = t % nuclide_bins(j)
+!         end if
+!       end do NUCLIDE_LOOP
+!       call sp % write_data(temp_array, "nuclide_bins", &
+!            group="tallies/tally" // to_str(i), length=t % n_nuclide_bins)
+!       deallocate(temp_array)
+
+        ! Write number of score bins, score bins, and moment order
+        call sp % write_data(t % get_total_score_bins(), "n_score_bins", &
+             group="tallies/tally" // to_str(i))
+
+! Loop around scores
 !        call sp % write_data(t % score_bins, "score_bins", &
 !             group="tallies/tally" // to_str(i), length=t % n_score_bins)
-!        call sp % write_data(t % moment_order, "moment_order", &
-!             group="tallies/tally" // to_str(i), length=t % n_score_bins)
-!
-!        ! Write number of user score bins
-!        call sp % write_data(t % n_user_score_bins, "n_user_score_bins", &
-!             group="tallies/tally" // to_str(i))
-!
-!      end do TALLY_METADATA
+!       call sp % write_data(t % get_moment_order(), "moment_order", &
+!            group="tallies/tally" // to_str(i), length=t % n_score_bins)
+
+        ! Write number of user score bins
+!       call sp % write_data(t % n_user_score_bins, "n_user_score_bins", &
+!            group="tallies/tally" // to_str(i))
+
+      end do TALLY_METADATA
 
       ! Indicate where source bank is stored in statepoint
       if (source_separate) then
