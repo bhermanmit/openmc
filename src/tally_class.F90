@@ -1229,8 +1229,13 @@ module tally_class
             ! If no fission macro, don't score
             if (material_xs % fission == ZERO) cycle
 
+            ! Check for nuclide fission
+            if (i_nuclide /= MATERIAL_TOTAL) then
+              if (.not. nuclides(i_nuclide) % fissionable) cycle
+            end if
+
             ! Check to see if we need to sample a fission reaction
-            if (.not. associated(p_fiss)) p_fiss => sample_fake_fission(p)
+            if (.not. associated(p_fiss)) p_fiss => sample_fake_fission(p, i_nuclide)
             p_score => p_fiss
 
           end select 
@@ -1375,8 +1380,13 @@ module tally_class
           ! If no fission macro, don't score
           if (material_xs % fission == ZERO) cycle
 
+          ! Check for nuclide fission
+          if (i_nuclide /= MATERIAL_TOTAL) then
+            if (.not. nuclides(i_nuclide) % fissionable) cycle
+          end if
+
           ! Check to see if we need to sample a fission reaction
-          if (.not. associated(p_fiss)) p_fiss => sample_fake_fission(p)
+          if (.not. associated(p_fiss)) p_fiss => sample_fake_fission(p, i_nuclide)
           p_score => p_fiss
 
         end select 
@@ -1415,8 +1425,9 @@ module tally_class
 ! SAMPLE_FAKE_FISSION samples a fake fission reaction
 !===============================================================================
 
-  function sample_fake_fission(p) result(p_fiss)
+  function sample_fake_fission(p, i_nuclide) result(p_fiss)
 
+    integer :: i_nuclide
     type(Particle) :: p
     type(Particle), pointer :: p_fiss
 
@@ -1436,7 +1447,11 @@ module tally_class
     p_fiss = p
 
     ! Sample nuclide for fission reaction
-    i_nuclide_rxn = sample_nuclide(p_fiss, 'fission')
+    if (i_nuclide == MATERIAL_TOTAL) then
+      i_nuclide_rxn = sample_nuclide(p_fiss, 'fission')
+    else
+      i_nuclide_rxn = i_nuclide
+    end if
 
     ! Sample a fake fission
     call sample_fission(i_nuclide_rxn, i_reaction)
