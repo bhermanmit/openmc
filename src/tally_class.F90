@@ -950,7 +950,7 @@ module tally_class
 ! ANALOG_NUFISSION_EOUT scores nu-fission energy-out filter
 !===============================================================================
 
-  subroutine analog_nufission_eout(self, p, p_fiss, score_index)
+  subroutine analog_nufission_eout(self, p, p_fiss, score_index, nuclide_index)
 
     class(AnalogTallyClass), intent(inout) :: self
     integer :: score_index
@@ -961,8 +961,6 @@ module tally_class
     integer :: filter_index
     integer :: nuclide_index
     real(8) :: score
-
-    nuclide_index = 1
 
     ! Loop around particles in bank
     do k = n_bank - int(p % nu, 8) + 1, n_bank
@@ -1001,59 +999,87 @@ module tally_class
     type(Particle), target, intent(in) :: p
 
     integer :: filter_index
-    integer :: nuclide_index
     integer :: i_nuclide
+    integer :: nuclide_index
     integer :: j
     integer :: k
-    logical :: nuclide_score
     real(8) :: score ! the score to record
     type(Particle), pointer :: p_fiss => null()
 
+    ! Get filter index - this will be the filter index for every score
+    ! but where there is nu-fission with an energyout filter. This
+    ! filter index will be recalculated for each procedure neutron.
+    call self % setup_filter_indices(p)
+    filter_index = self % get_filter_index()
+
     ! Need to get nuclide index
-    k = 1
-    nuclide_score = .true.
-    NUCLIDE_LOOP: do while (nuclide_score)
+    k = 0
+    NUCLIDE_LOOP: do while (k < self % total_nuclide_bins)
 
-      ! Check for material
-      if (self % nuclides(k) == MATERIAL_TOTAL) nuclide_score = 
+      ! Increment the index in the list of nuclide bins
+      k = k + 1
 
-    ! Loop around score bins
-    SCORE_LOOP: do j = 1, self % n_scores
-
-      ! Check if event matches score type
-      if (.not. self % scores(j) % p % score_match(p)) cycle
-
-      ! Get standard analog score
-      score = self % scores(j) % p % get_weight(p)
-
-      ! Special cases
-      select type(s => self % scores(j) % p)
-
-      ! Nu-fission score needs how many neutrons were produced
-      type is (NuFissionScoreClass)
-
-        ! For energy-out need to perform for each  
-        if (self % has_eout_filter) then
-
-          call self % analog_nufission_eout(p, p_fiss, j)
-          cycle
-
+      if (self % score_all_nuclides) then
+        ! In the case that the user has requested to tally all nuclides, we
+        ! can take advantage of the fact that we know exactly how nuclide
+        ! bins correspond to nuclide indices.
+        if (k == 1) then
+          ! If we just entered, set the nuclide bin index to the index in
+          ! the nuclides array because this will match the index in the
+          ! nuclide bin array
+          k = p % event_nuclide
+          nuclide_index = k
+        else if (k == p % event_nuclide + 1) then
+          ! After we've tallied the individual nuclide bin, we also need
+          ! to contribute to the total material bin which is the last bin
+          k = self % total_nuclide_bins + 1
+          nuclide_index = k
         else
-
-          score = keff * p % wgt_bank
-
+          ! After we've tallied in both the individual nuclide bin and the
+          ! total material bin, we are done
+          exit
         end if
+      else
+        ! If the user has explicitly specified nuclides (or specified
+        ! none), we need to search through the nulide bin list one by
+        ! one. First we need to get the value of the nuclide bin
+        i_nuclide = self % nuclides(k)
+        nuclide_index = k
 
-      end select
+        ! Now compare the value against that of the colliding nuclide
+        if (i_nuclide /= p % event_nuclide .and. &
+            i_nuclide /= MATERIAL_TOTAL) cycle
+      end if
 
-      ! Get filter index
-      call self % setup_filter_indices(p)
-      filter_index = self % get_filter_index()
+      ! Loop around score bins now that we now the nuclide or material
+      SCORE_LOOP: do j = 1, self % n_scores
 
-      ! Add score to results array
-      call self % results(nuclide_index, j, filter_index) % add(score)
+        ! Check if event matches score type
+        if (.not. self % scores(j) % p % score_match(p)) cycle
 
-    end do SCORE_LOOP
+        ! Get standard analog score
+        score = self % scores(j) % p % get_weight(p)
+
+        ! Special cases
+        select type(s => self % scores(j) % p)
+
+        ! Nu-fission score needs how many neutrons were produced
+        type is (NuFissionScoreClass)
+
+          ! For energy-out need to perform for each  
+          if (self % has_eout_filter) then
+            call self % analog_nufission_eout(p, p_fiss, j, nuclide_index)
+            cycle
+          else
+            score = keff * p % wgt_bank
+          end if
+
+        end select
+
+        ! Add score to results array
+        call self % results(nuclide_index, j, filter_index) % add(score)
+
+      end do SCORE_LOOP
 
     end do NUCLIDE_LOOP
 
