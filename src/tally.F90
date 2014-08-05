@@ -236,6 +236,7 @@ module tally
     integer :: i
     integer :: n      ! number of filter bins
     integer :: m      ! number of score bins
+    integer :: o      ! number of nuclide bins
     integer :: n_bins ! total number of bins
     real(8), allocatable :: tally_temp(:,:) ! contiguous array of results
     real(8) :: global_temp(N_GLOBAL_TALLIES)
@@ -248,9 +249,10 @@ module tally
 
       m = t % get_total_score_bins()
       n = t % get_total_filter_bins()
-      n_bins = m*n
+      o = t % get_total_nuclide_bins()
+      n_bins = m*n*o
 
-      allocate(tally_temp(m,n))
+      allocate(tally_temp(o,m,n))
 
       call t % get_results_pointer(r)
       call r % get_values(tally_temp)

@@ -1515,26 +1515,8 @@ contains
 
   subroutine print_results()
 
-    real(8) :: alpha   ! significance level for CI
-    real(8) :: t_value ! t-value for confidence intervals
-
     ! display header block for results
     call header("Results")
-
-!   if (confidence_intervals) then
-!     ! Calculate t-value for confidence intervals
-!     alpha = ONE - CONFIDENCE_LEVEL
-!     t_value = t_percentile(ONE - alpha/TWO, n_realizations - 1)
-
-      ! Adjust sum_sq
-!     global_tallies(:) % sum_sq = t_value * global_tallies(:) % sum_sq
-
-      ! Adjust combined estimator
-!     if (n_realizations > 3) then
-!       t_value = t_percentile(ONE - alpha/TWO, n_realizations - 3)
-!       k_combined(2) = t_value * k_combined(2)
-!     end if
-!   end if
 
     ! write global tallies
     if (n_realizations > 1) then

@@ -42,37 +42,39 @@ module tally_class
     integer, allocatable :: nuclides(:)
     logical :: has_eout_filter = .false.
     logical :: has_mesh_filter = .false.
+    logical :: score_all_nuclides = .false.
     type(MeshFilterClass), pointer :: mesh_filter => null()
     type(TallyFilter_p), allocatable :: filters(:) ! Polymorphic array of filter objects
-    type(TallyResultClass), allocatable :: results(:,:) ! Array of result objects
+    type(TallyResultClass), allocatable :: results(:,:,:) ! Array of result objects
     type(TallyScore_p), allocatable :: scores(:) ! Polymorphic array of filter objects
     contains
       procedure, public :: accumulate => accumulate_results
       procedure, public :: add_filter
       procedure, public :: add_score
       procedure, public :: allocate_filters
-      procedure :: allocate_results
+      procedure         :: allocate_results
       procedure, public :: allocate_scores
       procedure, public :: allocate_nuclides
       procedure, public :: destroy => tally_destroy
       procedure, public :: finish_setup
-      procedure :: get_filter
-      procedure :: get_filter_index
-      procedure :: get_label
-      procedure :: get_n_filters
-      procedure :: get_total_score_bins
-      procedure :: get_total_filter_bins
-      procedure :: get_total_nuclide_bins
+      procedure         :: get_filter
+      procedure         :: get_filter_index
+      procedure         :: get_label
+      procedure         :: get_n_filters
+      procedure         :: get_total_score_bins
+      procedure         :: get_total_filter_bins
+      procedure         :: get_total_nuclide_bins
       procedure, public :: get_results_pointer
       procedure, public :: get_n_realizations
-      procedure :: set_filter_index
-      procedure :: setup_filter_indices
+      procedure         :: set_filter_index
+      procedure         :: setup_filter_indices
       procedure, public :: get_nuclide_bin
       procedure, public :: set_nuclide_bin
       procedure, public :: reset => tally_reset
-      procedure :: setup_stride
+      procedure         :: setup_stride
       procedure, public :: set_id
       procedure, public :: get_id
+      procedure, public :: set_score_all_nuclides
       procedure, public :: statistics => tally_statistics
       procedure, public :: confidence => tally_confidence
       procedure, public :: write => write_tally
@@ -260,7 +262,8 @@ module tally_class
 
     class(TallyClass), intent(inout) :: self
 
-    allocate(self % results(self % total_score_bins, self % total_filter_bins))
+    allocate(self % results(self % total_nuclide_bins, &
+       self % total_score_bins, self % total_filter_bins))
     
   end subroutine allocate_results
 
@@ -341,8 +344,7 @@ module tally_class
 
     ! Set up stride array
     call self % setup_stride()
-print *, 'Nuclides:'
-print *, self % nuclides
+
   end subroutine finish_setup
 
 !===============================================================================
@@ -470,7 +472,7 @@ print *, self % nuclides
   subroutine get_results_pointer(self, results)
 
     class(TallyClass), intent(inout), target:: self
-    class(TallyResultClass), pointer, intent(out) :: results(:,:)
+    class(TallyResultClass), pointer, intent(out) :: results(:,:,:)
 
     results => self % results
 
@@ -571,6 +573,19 @@ print *, self % nuclides
   end function get_id
 
 !===============================================================================
+! SET_SCORE_ALL_NUCLIDES
+!===============================================================================
+
+  subroutine set_score_all_nuclides(self, score_all)
+
+    class(TallyClass), intent(inout) :: self
+    logical :: score_all
+
+    self % score_all_nuclides = score_all
+
+  end subroutine set_score_all_nuclides
+
+!===============================================================================
 ! TALLY_RESET
 !===============================================================================
 
@@ -619,6 +634,7 @@ print *, self % nuclides
 
     integer :: i
     integer :: j
+    integer :: k
 
     ! Write tally information
     write(unit, *) "Tally ID:", self % id
@@ -639,7 +655,9 @@ print *, self % nuclides
     ! Write out results
     do i = 1, self % total_filter_bins
       do j = 1, self % total_score_bins
-        call self % results(j,i) % write(unit)
+        do k = 1, self % total_filter_bins
+          call self % results(k,j,i) % write(unit)
+        end do
       end do
     end do
 
@@ -668,6 +686,10 @@ print *, self % nuclides
     character(15)           :: filter_name(N_FILTER_TYPES) ! names of tally filters
     character(36)           :: score_names(N_SCORE_TYPES)  ! names of scoring function
     character(36)           :: score_name                  ! names of scoring function
+
+    integer :: nuclide_index
+
+    nuclide_index = 1
 
     ! Initialize names for tally filter types
     filter_name(FILTER_UNIVERSE)  = "Universe"
@@ -774,7 +796,6 @@ print *, self % nuclides
       end if
 
       ! Write results for this filter bin combination
-      score_index = 0
       if (self % n_filters > 0) indent = indent + 2
       do n = 1, self % total_nuclide_bins
         ! Write label for nuclide
@@ -792,7 +813,6 @@ print *, self % nuclides
         k = 0
         do l = 1, self % total_score_bins
           k = k + 1
-          score_index = score_index + 1
           select case(self % scores(k) % p % get_type())
           case (SCORE_SCATTER_N, SCORE_NU_SCATTER_N)
             score_name = 'P' // trim(to_str(self % scores(k) % p % &
@@ -800,8 +820,8 @@ print *, self % nuclides
               score_names(abs(self % scores(k) % p % get_type()))
             write(UNIT=UNIT_TALLY, FMT='(1X,2A,1X,A,"+/- ",A)') &
               repeat(" ", indent), score_name, &
-              to_str(self % results(score_index,filter_index) % get_sum()), &
-              trim(to_str(self % results(score_index,filter_index) % get_sum_sq()))
+              to_str(self % results(n, k, filter_index) % get_sum()), &
+              trim(to_str(self % results(n, k, filter_index) % get_sum_sq()))
           case (SCORE_SCATTER_PN, SCORE_NU_SCATTER_PN)
             score_index = score_index - 1
             do n_order = 0, self % scores(k) % p % get_moment_order()
@@ -810,8 +830,8 @@ print *, self % nuclides
                 score_names(abs(self % scores(k) % p % get_type()))
               write(UNIT=UNIT_TALLY, FMT='(1X,2A,1X,A,"+/- ",A)') &
                 repeat(" ", indent), score_name, &
-                to_str(self % results(score_index,filter_index) % get_sum()), &
-                trim(to_str(self % results(score_index,filter_index) % get_sum_sq()))
+                to_str(self % results(n, k, filter_index) % get_sum()), &
+                trim(to_str(self % results(n, k, filter_index) % get_sum_sq()))
             end do
             k = k + self % scores(k) % p % get_moment_order()
           case (SCORE_SCATTER_YN, SCORE_NU_SCATTER_YN, SCORE_FLUX_YN, &
@@ -824,8 +844,8 @@ print *, self % nuclides
                   trim(to_str(nm_order)) // " " // score_names(abs(self % scores(k) % p % get_type()))
                 write(UNIT=UNIT_TALLY, FMT='(1X,2A,1X,A,"+/- ",A)') &
                   repeat(" ", indent), score_name, &
-                  to_str(self % results(score_index,filter_index) % get_sum()), &
-                  trim(to_str(self % results(score_index,filter_index) % get_sum_sq()))
+                  to_str(self % results(n, k, filter_index) % get_sum()), &
+                  trim(to_str(self % results(n, k, filter_index) % get_sum_sq()))
               end do
             end do
             k = k + (self % scores(k) % p % get_moment_order() + 1)**2 - 1
@@ -837,8 +857,8 @@ print *, self % nuclides
             end if
             write(UNIT=UNIT_TALLY, FMT='(1X,2A,1X,A,"+/- ",A)') &
               repeat(" ", indent), score_name, &
-              to_str(self % results(score_index,filter_index) % get_sum()), &
-              trim(to_str(self % results(score_index,filter_index) % get_sum_sq()))
+              to_str(self % results(n, k, filter_index) % get_sum()), &
+              trim(to_str(self % results(n, k, filter_index) % get_sum_sq()))
           end select
         end do
         indent = indent - 2
@@ -939,7 +959,10 @@ print *, self % nuclides
 
     integer(8) :: k
     integer :: filter_index
+    integer :: nuclide_index
     real(8) :: score
+
+    nuclide_index = 1
 
     ! Loop around particles in bank
     do k = n_bank - int(p % nu, 8) + 1, n_bank
@@ -962,7 +985,7 @@ print *, self % nuclides
       score = keff * self % scores(score_index) % p % get_weight(p_fiss)
 
       ! Add score to results array
-      call self % results(score_index, filter_index) % add(score)
+      call self % results(nuclide_index, score_index, filter_index) % add(score)
 
     end do
 
@@ -978,9 +1001,21 @@ print *, self % nuclides
     type(Particle), target, intent(in) :: p
 
     integer :: filter_index
+    integer :: nuclide_index
+    integer :: i_nuclide
     integer :: j
+    integer :: k
+    logical :: nuclide_score
     real(8) :: score ! the score to record
     type(Particle), pointer :: p_fiss => null()
+
+    ! Need to get nuclide index
+    k = 1
+    nuclide_score = .true.
+    NUCLIDE_LOOP: do while (nuclide_score)
+
+      ! Check for material
+      if (self % nuclides(k) == MATERIAL_TOTAL) nuclide_score = 
 
     ! Loop around score bins
     SCORE_LOOP: do j = 1, self % n_scores
@@ -1016,9 +1051,11 @@ print *, self % nuclides
       filter_index = self % get_filter_index()
 
       ! Add score to results array
-      call self % results(j, filter_index) % add(score)
+      call self % results(nuclide_index, j, filter_index) % add(score)
 
     end do SCORE_LOOP
+
+    end do NUCLIDE_LOOP
 
     ! Deallocate particle pointers if associated
     if (associated(p_fiss)) then
@@ -1077,6 +1114,7 @@ print *, self % nuclides
     integer :: j
     integer :: k
     integer :: n_cross ! number of surface crossings
+    integer :: nuclide_index
     logical :: found_bin
     real(8) :: score ! the score to record
     real(8) :: flux ! estimate of the flux
@@ -1084,6 +1122,8 @@ print *, self % nuclides
     real(8) :: weight ! some form of a neutron statistical weight
     type(Particle), pointer :: p_fiss => null()
     type(Particle), pointer :: p_score => null()
+
+    nuclide_index = 1
 
     ! Loop around score bins
     SCORE_LOOP: do j = 1, self % n_scores
@@ -1142,7 +1182,7 @@ print *, self % nuclides
           score = weight * response * flux
 
           ! Add score to results array
-          call self % results(j, filter_index) % add(score)
+          call self % results(nuclide_index, j, filter_index) % add(score)
 
         end do 
 
@@ -1159,7 +1199,7 @@ print *, self % nuclides
         score = weight * response * flux
 
         ! Add score to results array
-        call self % results(j, filter_index) % add(score)
+        call self % results(nuclide_index, j, filter_index) % add(score)
 
       end if
 
@@ -1216,6 +1256,7 @@ print *, self % nuclides
     type(Particle), target, intent(in) :: p
 
     integer :: filter_index
+    integer :: nuclide_index
     integer :: j
     real(8) :: score ! the score to record
     real(8) :: flux ! estimate of the flux
@@ -1223,6 +1264,8 @@ print *, self % nuclides
     real(8) :: weight ! some form of a neutron statistical weight
     type(Particle), pointer :: p_fiss => null()
     type(Particle), pointer :: p_score => null()
+
+    nuclide_index = 1
 
     ! Loop around score bins
     SCORE_LOOP: do j = 1, self % n_scores
@@ -1258,7 +1301,7 @@ print *, self % nuclides
       filter_index = self % get_filter_index()
 
       ! Add score to results array
-      call self % results(j, filter_index) % add(score)
+      call self % results(nuclide_index, j, filter_index) % add(score)
 
     end do SCORE_LOOP
 

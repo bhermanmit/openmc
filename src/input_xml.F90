@@ -2201,6 +2201,7 @@ contains
         if (trim(sarray(1)) == 'all') then
           ! Handle special case <nuclides>all</nuclides>
           call t % allocate_nuclides(n_nuclides_total + 1)
+          call t % set_score_all_nuclides(.true.)
 
           ! Set bins to 1, 2, 3, ..., n_nuclides_total, -1
           do j = 1, n_nuclides_total
