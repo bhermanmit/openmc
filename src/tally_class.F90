@@ -1015,7 +1015,7 @@ module tally_class
 
     ! Need to get nuclide index
     k = 0
-    NUCLIDE_LOOP: do while (k < n_nuclides_total)
+    NUCLIDE_LOOP: do while (k < self % total_nuclide_bins)
 
       ! Increment the index in the list of nuclide bins
       k = k + 1
@@ -1033,7 +1033,7 @@ module tally_class
         else if (k == p % event_nuclide + 1) then
           ! After we've tallied the individual nuclide bin, we also need
           ! to contribute to the total material bin which is the last bin
-          k = n_nuclides_total + 1
+          k = self % total_nuclide_bins
           nuclide_index = k
         else
           ! After we've tallied in both the individual nuclide bin and the
@@ -1214,6 +1214,12 @@ module tally_class
       ! Going to score to a nuclide bin
       bins_left = bins_left - 1
 
+      ! Fake particles need to be deallocated so that they are resampled
+      ! for different nuclides  
+      if (associated(p_fiss)) then
+        deallocate(p_fiss)
+      end if
+
       ! Loop around score bins
       SCORE_LOOP: do j = 1, self % n_scores
 
@@ -1273,7 +1279,7 @@ module tally_class
             filter_index = self % get_filter_index()
 
             ! Calculate score
-            score = weight * response * flux
+            score = weight * number_density * response * flux
 
             ! Add score to results array
             call self % results(nuclide_index, j, filter_index) % add(score)
@@ -1354,59 +1360,127 @@ module tally_class
     integer :: filter_index
     integer :: i_nuclide
     integer :: nuclide_index
+    integer :: i
+    integer :: ii
     integer :: j
+    integer :: bins_left
+    logical :: bins_done
     real(8) :: score ! the score to record
     real(8) :: flux ! estimate of the flux
     real(8) :: response ! tally response
     real(8) :: weight ! some form of a neutron statistical weight
+    real(8) :: number_density
     type(Particle), pointer :: p_fiss => null()
     type(Particle), pointer :: p_score => null()
+    type(Material), pointer :: mat => null()
 
-    i_nuclide = MATERIAL_TOTAL
-    nuclide_index = 1
+    ! Point to material
+    mat => materials(p % material)
 
-    ! Loop around score bins
-    SCORE_LOOP: do j = 1, self % n_scores
+    ! Set up bins left to score to
+    bins_left = self % total_nuclide_bins
+    bins_done = .false.
 
-      ! Set scoring particle to be the actual particle
-      p_score => p
+    ! Loop around nuclides in material
+    NUCLIDE_MAT_LOOP: do i = 1, mat % n_nuclides + 1
 
-      ! Special cases for enery out filter
-      if (self % has_eout_filter) then
-        select type (s => self % scores(j) % p)
+      ! Just reset i_nuclide to 1 so that we know for a fact that it gets
+      ! set to MATERIAL_TOTAL
+      i_nuclide = 1
 
-        type is (NuFissionScoreClass)
+      ! Check for any bins left
+      if (bins_left == 0) exit NUCLIDE_MAT_LOOP
 
-          ! If no fission macro, don't score
-          if (material_xs % fission == ZERO) cycle
-
-          ! Check for nuclide fission
-          if (i_nuclide /= MATERIAL_TOTAL) then
-            if (.not. nuclides(i_nuclide) % fissionable) cycle
-          end if
-
-          ! Check to see if we need to sample a fission reaction
-          if (.not. associated(p_fiss)) p_fiss => sample_fake_fission(p, i_nuclide)
-          p_score => p_fiss
-
-        end select 
-
+      ! Check for material total score
+      if (i == mat % n_nuclides + 1) then
+        if (self % nuclides(self % total_nuclide_bins) == MATERIAL_TOTAL) then
+          i_nuclide = MATERIAL_TOTAL
+          nuclide_index = self % total_nuclide_bins
+          number_density = ONE
+        else
+          exit NUCLIDE_MAT_LOOP
+        end if
       end if
 
-      ! Calculate score
-      flux = self % get_flux()
-      response = self % scores(j) % p % get_response(i_nuclide)
-      weight = self % scores(j) % p % get_weight(p_score)
-      score = weight * response * flux
+      ! Check if scoring to all nuclide bins (i_nuclide matches nuclide_index)
+      if (i_nuclide /= MATERIAL_TOTAL) then
+        if (self % score_all_nuclides) then
+          i_nuclide = mat % nuclide(i)
+          nuclide_index = mat % nuclide(i)
+          number_density = mat % atom_density(i)
+        else
+          NUCLIDE_BIN_LOOP: do ii = 1, self % total_nuclide_bins
 
-      ! Get filter index
-      call self % setup_filter_indices(p_score)
-      filter_index = self % get_filter_index()
+            ! Check to see if there is a match
+            if (mat % nuclide(i) == self % nuclides(ii)) then
+              i_nuclide = self % nuclides(ii)
+              nuclide_index = ii
+              number_density = mat % atom_density(i)
+              exit NUCLIDE_BIN_LOOP
+            end if
 
-      ! Add score to results array
-      call self % results(nuclide_index, j, filter_index) % add(score)
+            ! Went through all nuclide bins
+            if (ii == self % total_nuclide_bins) then
+              cycle NUCLIDE_MAT_LOOP
+           end if
 
-    end do SCORE_LOOP
+          end do NUCLIDE_BIN_LOOP
+        end if
+      end if
+
+      ! Going to score to a nuclide bin
+      bins_left = bins_left - 1
+
+      ! Fake particles need to be deallocated so that they are resampled
+      ! for different nuclides  
+      if (associated(p_fiss)) then
+        deallocate(p_fiss)
+      end if
+
+      ! Loop around score bins
+      SCORE_LOOP: do j = 1, self % n_scores
+  
+        ! Set scoring particle to be the actual particle
+        p_score => p
+  
+        ! Special cases for enery out filter
+        if (self % has_eout_filter) then
+          select type (s => self % scores(j) % p)
+  
+          type is (NuFissionScoreClass)
+  
+            ! If no fission macro, don't score
+            if (material_xs % fission == ZERO) cycle
+  
+            ! Check for nuclide fission
+            if (i_nuclide /= MATERIAL_TOTAL) then
+              if (.not. nuclides(i_nuclide) % fissionable) cycle
+            end if
+  
+            ! Check to see if we need to sample a fission reaction
+            if (.not. associated(p_fiss)) p_fiss => sample_fake_fission(p, i_nuclide)
+            p_score => p_fiss
+  
+          end select 
+  
+        end if
+  
+        ! Calculate score
+        flux = self % get_flux()
+        response = self % scores(j) % p % get_response(i_nuclide)
+        weight = self % scores(j) % p % get_weight(p_score)
+        score = weight * response * flux
+  
+        ! Get filter index
+        call self % setup_filter_indices(p_score)
+        filter_index = self % get_filter_index()
+  
+        ! Add score to results array
+        call self % results(nuclide_index, j, filter_index) % add(score)
+  
+      end do SCORE_LOOP
+
+    end do NUCLIDE_MAT_LOOP
 
     ! Deallocate particle pointers if associated
     if (associated(p_fiss)) then
