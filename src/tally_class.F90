@@ -1,11 +1,12 @@
 module tally_class
 
   use ace_header,         only: Nuclide, Reaction, XSListing, nuclides, &
-                                xs_listings, material_xs
+                                xs_listings, material_xs, n_nuclides_total
   use bank_header,        only: fission_bank, n_bank
   use endf,               only: reaction_name
   use constants
   use dict_header,        only: DictIntInt
+  use material_header,    only: Material, materials
   use mesh_header,        only: StructuredMesh
   use mesh,               only: bin_to_mesh_indices
   use particle_header
@@ -1014,7 +1015,7 @@ module tally_class
 
     ! Need to get nuclide index
     k = 0
-    NUCLIDE_LOOP: do while (k < self % total_nuclide_bins)
+    NUCLIDE_LOOP: do while (k < n_nuclides_total)
 
       ! Increment the index in the list of nuclide bins
       k = k + 1
@@ -1032,7 +1033,7 @@ module tally_class
         else if (k == p % event_nuclide + 1) then
           ! After we've tallied the individual nuclide bin, we also need
           ! to contribute to the total material bin which is the last bin
-          k = self % total_nuclide_bins + 1
+          k = n_nuclides_total + 1
           nuclide_index = k
         else
           ! After we've tallied in both the individual nuclide bin and the
@@ -1137,99 +1138,163 @@ module tally_class
 
     integer :: bin ! mesh bin
     integer :: filter_index
+    integer :: i
+    integer :: ii
     integer :: j
     integer :: k
+    integer :: i_nuclide
     integer :: n_cross ! number of surface crossings
     integer :: nuclide_index
+    integer :: bins_left
+    logical :: bins_done
     logical :: found_bin
     real(8) :: score ! the score to record
     real(8) :: flux ! estimate of the flux
     real(8) :: response ! tally response
     real(8) :: weight ! some form of a neutron statistical weight
+    real(8) :: number_density
     type(Particle), pointer :: p_fiss => null()
     type(Particle), pointer :: p_score => null()
+    type(Material), pointer :: mat => null()
 
-    nuclide_index = 1
+    ! Point to material
+    mat => materials(p % material)
 
-    ! Loop around score bins
-    SCORE_LOOP: do j = 1, self % n_scores
+    ! Set up bins left to score to
+    bins_left = self % total_nuclide_bins
+    bins_done = .false.
 
-      ! Set scoring particle to be the actual particle
-      p_score => p
+    ! Loop around nuclides in material
+    NUCLIDE_MAT_LOOP: do i = 1, mat % n_nuclides + 1
 
-      ! Special cases for enery out filter
-      if (self % has_eout_filter) then
-        select type (s => self % scores(j) % p)
+      ! Just reset i_nuclide to 1 so that we know for a fact that it gets
+      ! set to MATERIAL_TOTAL
+      i_nuclide = 1
 
-        type is (NuFissionScoreClass)
+      ! Check for any bins left
+      if (bins_left == 0) exit NUCLIDE_MAT_LOOP
 
-          ! If no fission macro, don't score
-          if (material_xs % fission == ZERO) cycle
-
-          ! Check to see if we need to sample a fission reaction
-          if (.not. associated(p_fiss)) p_fiss => sample_fake_fission(p)
-          p_score => p_fiss
-
-        end select 
-
+      ! Check for material total score
+      if (i == mat % n_nuclides + 1) then
+        if (self % nuclides(self % total_nuclide_bins) == MATERIAL_TOTAL) then
+          i_nuclide = MATERIAL_TOTAL
+          nuclide_index = self % total_nuclide_bins
+          number_density = ONE
+        else
+          exit NUCLIDE_MAT_LOOP
+        end if
       end if
 
-      ! Check if there is a mesh filter
-      if (self % has_mesh_filter) then
+      ! Check if scoring to all nuclide bins (i_nuclide matches nuclide_index)
+      if (i_nuclide /= MATERIAL_TOTAL) then
+        if (self % score_all_nuclides) then
+          i_nuclide = mat % nuclide(i)
+          nuclide_index = mat % nuclide(i)
+          number_density = mat % atom_density(i)
+        else
+          NUCLIDE_BIN_LOOP: do ii = 1, self % total_nuclide_bins
 
-        ! Get filter index
-        call self % setup_filter_indices(p_score)
+            ! Check to see if there is a match
+            if (mat % nuclide(i) == self % nuclides(ii)) then
+              i_nuclide = self % nuclides(ii)
+              nuclide_index = ii
+              number_density = mat % atom_density(i)
+              exit NUCLIDE_BIN_LOOP
+            end if
 
-        ! Get tally score response and weight
-        response = self % scores(j) % p % get_response()
-        weight = self % scores(j) % p % get_weight(p_score)
+            ! Went through all nuclide bins
+            if (ii == self % total_nuclide_bins) then
+              cycle NUCLIDE_MAT_LOOP
+           end if
 
-        ! Get number of surface crossings
-        call self % mesh_filter % get_crossings(p_score, n_cross)
+          end do NUCLIDE_BIN_LOOP
+        end if
+      end if
 
-        ! Loop around number of crossings and record
-        ! Maybe this shouldn't be on the inner most loop because
-        ! different score types will have the same flux contributions
-        do k = 1, n_cross
+      ! Going to score to a nuclide bin
+      bins_left = bins_left - 1
 
-          ! Get the distance traveled through a bin
-          call self % mesh_filter % get_next_distance(p_score, flux, bin, found_bin)
+      ! Loop around score bins
+      SCORE_LOOP: do j = 1, self % n_scores
 
-          ! Don't continue if no bin was found
-          if (.not. found_bin) cycle
+        ! Set scoring particle to be the actual particle
+        p_score => p
 
-          ! Alter filter indices
-          call self % set_filter_index(FILTER_MESH, bin)
+        ! Special cases for enery out filter
+        if (self % has_eout_filter) then
+          select type (s => self % scores(j) % p)
 
-          ! Get overall filter index
+          type is (NuFissionScoreClass)
+
+            ! If no fission macro, don't score
+            if (material_xs % fission == ZERO) cycle
+
+            ! Check to see if we need to sample a fission reaction
+            if (.not. associated(p_fiss)) p_fiss => sample_fake_fission(p)
+            p_score => p_fiss
+
+          end select 
+
+        end if
+
+        ! Check if there is a mesh filter
+        if (self % has_mesh_filter) then
+
+          ! Get filter index
+          call self % setup_filter_indices(p_score)
+
+          ! Get tally score response and weight
+          response = self % scores(j) % p % get_response(i_nuclide)
+          weight = self % scores(j) % p % get_weight(p_score)
+
+          ! Get number of surface crossings
+          call self % mesh_filter % get_crossings(p_score, n_cross)
+
+          ! Loop around number of crossings and record
+          ! Maybe this shouldn't be on the inner most loop because
+          ! different score types will have the same flux contributions
+          do k = 1, n_cross
+
+            ! Get the distance traveled through a bin
+            call self % mesh_filter % get_next_distance(p_score, flux, bin, found_bin)
+
+            ! Don't continue if no bin was found
+            if (.not. found_bin) cycle
+
+            ! Alter filter indices
+            call self % set_filter_index(FILTER_MESH, bin)
+
+            ! Get overall filter index
+            filter_index = self % get_filter_index()
+
+            ! Calculate score
+            score = weight * response * flux
+
+            ! Add score to results array
+            call self % results(nuclide_index, j, filter_index) % add(score)
+
+          end do 
+
+        else
+
+          ! Get filter index
+          call self % setup_filter_indices(p_score)
           filter_index = self % get_filter_index()
 
-          ! Calculate score
-          score = weight * response * flux
+          ! Calculate standard tracklength score
+          flux = self % get_flux(p_score)
+          response = self % scores(j) % p % get_response(i_nuclide)
+          weight = self % scores(j) % p % get_weight(p_score)
+          score = weight * number_density * response * flux
 
           ! Add score to results array
           call self % results(nuclide_index, j, filter_index) % add(score)
 
-        end do 
+        end if
 
-      else
+      end do SCORE_LOOP
 
-        ! Get filter index
-        call self % setup_filter_indices(p_score)
-        filter_index = self % get_filter_index()
-
-        ! Calculate standard tracklength score
-        flux = self % get_flux(p_score)
-        response = self % scores(j) % p % get_response()
-        weight = self % scores(j) % p % get_weight(p_score)
-        score = weight * response * flux
-
-        ! Add score to results array
-        call self % results(nuclide_index, j, filter_index) % add(score)
-
-      end if
-
-    end do SCORE_LOOP
+    end do NUCLIDE_MAT_LOOP
 
     ! Deallocate particle pointers if associated
     if (associated(p_fiss)) then
@@ -1282,6 +1347,7 @@ module tally_class
     type(Particle), target, intent(in) :: p
 
     integer :: filter_index
+    integer :: i_nuclide
     integer :: nuclide_index
     integer :: j
     real(8) :: score ! the score to record
@@ -1291,6 +1357,7 @@ module tally_class
     type(Particle), pointer :: p_fiss => null()
     type(Particle), pointer :: p_score => null()
 
+    i_nuclide = MATERIAL_TOTAL
     nuclide_index = 1
 
     ! Loop around score bins
@@ -1318,7 +1385,7 @@ module tally_class
 
       ! Calculate score
       flux = self % get_flux()
-      response = self % scores(j) % p % get_response()
+      response = self % scores(j) % p % get_response(i_nuclide)
       weight = self % scores(j) % p % get_weight(p_score)
       score = weight * response * flux
 

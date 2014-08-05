@@ -1,6 +1,6 @@
 module tally_score_class
 
-  use ace_header,      only: material_xs
+  use ace_header,      only: material_xs, micro_xs
   use constants
   use particle_header, only: Particle
 
@@ -31,7 +31,8 @@ module tally_score_class
       type(Particle) :: p
       logical :: match
     end function score_match_interface
-    function get_response_interface() result(response)
+    function get_response_interface(i_nuclide) result(response)
+      integer :: i_nuclide
       real(8) :: response
     end function get_response_interface
     function get_weight_interface(p) result(weight)
@@ -180,11 +181,16 @@ module tally_score_class
 ! TOTAL_GET_RESPONSE gets the total macro xs
 !===============================================================================
 
-  function total_get_response() result(response)
+  function total_get_response(i_nuclide) result(response)
 
+    integer :: i_nuclide
     real(8) :: response
 
-    response = material_xs % total
+    if (i_nuclide == MATERIAL_TOTAL) then
+      response = material_xs % total
+    else
+      response = micro_xs(i_nuclide) % total
+    end if
 
   end function total_get_response
 
@@ -241,11 +247,16 @@ module tally_score_class
 ! NUFISSION_GET_RESPONSE gets the nu-fission macro xs
 !===============================================================================
 
-  function nufission_get_response() result(response)
+  function nufission_get_response(i_nuclide) result(response)
 
+    integer :: i_nuclide
     real(8) :: response
 
-    response = material_xs % nu_fission
+    if (i_nuclide == MATERIAL_TOTAL) then
+      response = material_xs % nu_fission
+    else
+      response = micro_xs(i_nuclide) % nu_fission
+    end if
 
   end function nufission_get_response
 
