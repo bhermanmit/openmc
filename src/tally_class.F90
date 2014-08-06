@@ -1136,7 +1136,7 @@ module tally_class
     class(TracklengthTallyClass), intent(inout) :: self
     type(Particle), target, intent(in) :: p
 
-    integer :: bin ! mesh bin
+    integer :: mesh_bin
     integer :: filter_index
     integer :: i
     integer :: ii
@@ -1146,16 +1146,29 @@ module tally_class
     integer :: n_cross ! number of surface crossings
     integer :: nuclide_index
     integer :: bins_left
+    integer, pointer :: mesh_bins(:) => null() 
     logical :: bins_done
-    logical :: found_bin
     real(8) :: score ! the score to record
     real(8) :: flux ! estimate of the flux
     real(8) :: response ! tally response
     real(8) :: weight ! some form of a neutron statistical weight
     real(8) :: number_density
+    real(8), pointer :: dists(:) => null()
     type(Particle), pointer :: p_fiss => null()
     type(Particle), pointer :: p_score => null()
     type(Material), pointer :: mat => null()
+
+    ! Get distances where in mesh or not
+    if (self % has_mesh_filter) then
+      call self % mesh_filter % calculate_distances(p, dists, mesh_bins, n_cross)
+    else
+      ! Only 1 distance no mesh filter
+      allocate(dists(1))
+      allocate(mesh_bins(1))
+      dists(1) = p % dist
+      mesh_bins(1) = 1
+      n_cross = 1
+    end if
 
     ! Point to material
     mat => materials(p % material)
@@ -1248,60 +1261,33 @@ module tally_class
 
         end if
 
-        ! Check if there is a mesh filter
-        if (self % has_mesh_filter) then
+        ! Get filter index
+        call self % setup_filter_indices(p_score)
 
-          ! Get filter index
-          call self % setup_filter_indices(p_score)
+        ! Calculate standard tracklength score
+        response = self % scores(j) % p % get_response(i_nuclide)
+        weight = self % scores(j) % p % get_weight(p_score)
 
-          ! Get tally score response and weight
-          response = self % scores(j) % p % get_response(i_nuclide)
-          weight = self % scores(j) % p % get_weight(p_score)
+        ! Loop around distances and score
+        do k = 1, n_cross
 
-          ! Get number of surface crossings
-          call self % mesh_filter % get_crossings(p_score, n_cross)
+          ! Get flux (distance for tracklength)
+          flux = dists(k)
+          mesh_bin = mesh_bins(k)
+          if (mesh_bin == 0) cycle
 
-          ! Loop around number of crossings and record
-          ! Maybe this shouldn't be on the inner most loop because
-          ! different score types will have the same flux contributions
-          do k = 1, n_cross
+          ! Set up mesh filter
+          if (self % has_mesh_filter) &
+              call self % set_filter_index(FILTER_MESH, mesh_bin)
 
-            ! Get the distance traveled through a bin
-            call self % mesh_filter % get_next_distance(p_score, flux, bin, found_bin)
-
-            ! Don't continue if no bin was found
-            if (.not. found_bin) cycle
-
-            ! Alter filter indices
-            call self % set_filter_index(FILTER_MESH, bin)
-
-            ! Get overall filter index
-            filter_index = self % get_filter_index()
-
-            ! Calculate score
-            score = weight * number_density * response * flux
-
-            ! Add score to results array
-            call self % results(nuclide_index, j, filter_index) % add(score)
-
-          end do 
-
-        else
-
-          ! Get filter index
-          call self % setup_filter_indices(p_score)
+          ! Calculate filter index
           filter_index = self % get_filter_index()
 
-          ! Calculate standard tracklength score
-          flux = self % get_flux(p_score)
-          response = self % scores(j) % p % get_response(i_nuclide)
-          weight = self % scores(j) % p % get_weight(p_score)
+          ! Score 
           score = weight * number_density * response * flux
-
-          ! Add score to results array
           call self % results(nuclide_index, j, filter_index) % add(score)
 
-        end if
+       end do
 
       end do SCORE_LOOP
 
@@ -1311,6 +1297,8 @@ module tally_class
     if (associated(p_fiss)) then
       deallocate(p_fiss)
     end if
+    deallocate(dists)
+    deallocate(mesh_bins)
 
   end subroutine tracklength_tally_score
 
