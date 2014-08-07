@@ -12,18 +12,22 @@ module state_point
 !===============================================================================
 
 
+  use ace_header,         only: nuclides
   use cmfd_header,        only: cmfd, cmfd_on
   use constants
   use error,              only: fatal_error, warning, write_message, message
   use global
   use output,             only: time_stamp
+  use physics,            only: global_tallies
   use string,             only: to_str
   use mesh_header,        only: meshes, n_meshes
   use mpi_interface
   use output_interface
   use random_lcg,         only: seed
-  use tally_class,        only: reduce_tallies, n_tallies, TallyClass, tallies
+  use tally_class,        only: reduce_tallies, n_tallies, TallyClass, &
+                                tallies, n_realizations, tallies_on
   use tally_filter_class, only: TallyFilterClass
+  use tally_result_class, only: TallyResultClass
 
   implicit none
 
@@ -41,10 +45,12 @@ contains
     integer                 :: i
     integer                 :: j
     integer, allocatable    :: temp_array(:)
+    integer, allocatable    :: temp_array2(:)
     integer, pointer :: int_bins(:)
     real(8), pointer :: real_bins(:)
     class(TallyClass), pointer :: t => null()
     class(TallyFilterClass), pointer :: f => null()
+    class(TallyResultClass), pointer :: r(:,:,:) => null()
 
     ! Set filename for state point
     filename = trim(path_output) // 'statepoint.' // &
@@ -215,31 +221,41 @@ contains
              group="tallies/tally" // to_str(i))
 
         ! Set up nuclide bin array and then write
-!       allocate(temp_array(t % get_total_nuclide_bins()))
-!       NUCLIDE_LOOP: do j = 1, t % n_nuclide_bins
-!         if (t % nuclide_bins(j) > 0) then
-!           temp_array(j) = nuclides(t % nuclide_bins(j)) % zaid
-!         else
-!           temp_array(j) = t % nuclide_bins(j)
-!         end if
-!       end do NUCLIDE_LOOP
-!       call sp % write_data(temp_array, "nuclide_bins", &
-!            group="tallies/tally" // to_str(i), length=t % n_nuclide_bins)
-!       deallocate(temp_array)
+        allocate(temp_array(t % get_total_nuclide_bins()))
+        NUCLIDE_LOOP: do j = 1, t % get_total_nuclide_bins() 
+          if (t % get_nuclide_bin(j) > 0) then
+            temp_array(j) = nuclides(t % get_nuclide_bin(j)) % zaid
+          else
+            temp_array(j) = t % get_nuclide_bin(j)
+          end if
+        end do NUCLIDE_LOOP
+        call sp % write_data(temp_array, "nuclide_bins", &
+             group="tallies/tally" // to_str(i), length=t % get_total_nuclide_bins())
+        deallocate(temp_array)
 
-        ! Write number of score bins, score bins, and moment order
+        ! Write number of score bins
         call sp % write_data(t % get_total_score_bins(), "n_score_bins", &
              group="tallies/tally" // to_str(i))
 
-! Loop around scores
-!        call sp % write_data(t % score_bins, "score_bins", &
-!             group="tallies/tally" // to_str(i), length=t % n_score_bins)
-!       call sp % write_data(t % get_moment_order(), "moment_order", &
-!            group="tallies/tally" // to_str(i), length=t % n_score_bins)
+        ! Loop around score bins
+        allocate(temp_array(t % get_total_score_bins()))
+        allocate(temp_array2(t % get_total_score_bins()))
+        SCORE_LOOP: do j = 1, t % get_total_score_bins()
+          temp_array(j) = t % get_score_bin(j)
+          temp_array2(j) = t % get_score_moment_order(j)
+        end do SCORE_LOOP
+
+        ! Write score bins and moment order
+        call sp % write_data(temp_array, "score_bins", &
+                group="tallies/tally" // to_str(i), length=t % get_total_score_bins())
+        call sp % write_data(temp_array2, "moment_order", &
+               group="tallies/tally" // to_str(i), length=t % get_total_score_bins())
 
         ! Write number of user score bins
-!       call sp % write_data(t % n_user_score_bins, "n_user_score_bins", &
+!       call sp % write_data(t % get_n_user_score_bins(), "n_user_score_bins", &
 !            group="tallies/tally" // to_str(i))
+        deallocate(temp_array)
+        deallocate(temp_array2)
 
       end do TALLY_METADATA
 
@@ -262,38 +278,41 @@ contains
     elseif (master) then
 
       ! Write number of global realizations
-!     call sp % write_data(n_realizations, "n_realizations")
+      call sp % write_data(n_realizations, "n_realizations")
 
       ! Write global tallies
-!     call sp % write_data(N_GLOBAL_TALLIES, "n_global_tallies")
-!     call sp % write_tally_result(global_tallies, "global_tallies", &
-!          n1=N_GLOBAL_TALLIES, n2=1)
+      call sp % write_data(N_GLOBAL_TALLIES, "n_global_tallies")
+      call sp % write_tally_result(global_tallies, "global_tallies", &
+           n1=N_GLOBAL_TALLIES, n2=1, n3=1)
 
       ! Write tallies
-!      if (tallies_on) then
-!
-!        ! Indicate that tallies are on
-!        call sp % write_data(1, "tallies_present", group="tallies")
-!
-!        ! Write all tally results
-!        TALLY_RESULTS: do i = 1, n_tallies
-!
-!          ! Set point to current tally
-!          t => tallies(i)
-!
-!          ! Write sum and sum_sq for each bin
-!          call sp % write_tally_result(t % results, "results", &
-!               group="tallies/tally" // to_str(i), &
-!               n1=size(t % results, 1), n2=size(t % results, 2))
-!
-!        end do TALLY_RESULTS
-!
-!      else
-!
+       if (tallies_on) then
+ 
+         ! Indicate that tallies are on
+         call sp % write_data(1, "tallies_present", group="tallies")
+ 
+         ! Write all tally results
+         TALLY_RESULTS: do i = 1, n_tallies
+ 
+           ! Set point to current tally
+           t => tallies(i) % p
+
+           ! Get pointer to results
+           call t % get_results_pointer(r)
+ 
+           ! Write sum and sum_sq for each bin
+           call sp % write_tally_result(r, "results", &
+                group="tallies/tally" // to_str(i), &
+                n1=size(r, 1), n2=size(r, 2), n3=size(r, 3))
+ 
+         end do TALLY_RESULTS
+ 
+       else
+ 
         ! Indicate tallies are off
         call sp % write_data(0, "tallies_present", group="tallies")
-!
-!      end if
+ 
+       end if
 
       ! Close the file for serial writing
       call sp % file_close()

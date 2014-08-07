@@ -15,6 +15,8 @@ module tally_result_class
       procedure, public :: confidence => confidence_result
       procedure, public :: get_sum
       procedure, public :: get_sum_sq
+      procedure, public :: get_sum_pointer
+      procedure, public :: get_sum_sq_pointer
       procedure, public :: get_value
       procedure, public :: set_value
       procedure, public :: get_values
@@ -76,6 +78,32 @@ module tally_result_class
     sum_sq = self % sum_sq
 
   end function get_sum_sq
+
+!===============================================================================
+! GET_SUM
+!===============================================================================
+
+  function get_sum_pointer(self) result(sum_)
+
+    class(TallyResultClass), target :: self
+    real(8), pointer :: sum_
+
+    sum_ => self % sum
+
+  end function get_sum_pointer
+
+!===============================================================================
+! GET_SUM_SQ
+!===============================================================================
+
+  function get_sum_sq_pointer(self) result(sum_sq)
+
+    class(TallyResultClass), target :: self
+    real(8), pointer :: sum_sq
+
+    sum_sq => self % sum_sq
+
+  end function get_sum_sq_pointer
 
 !===============================================================================
 ! GET_VALUE

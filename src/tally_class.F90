@@ -71,6 +71,8 @@ module tally_class
       procedure         :: setup_filter_indices
       procedure, public :: get_nuclide_bin
       procedure, public :: set_nuclide_bin
+      procedure, public :: get_score_bin
+      procedure, public :: get_score_moment_order
       procedure, public :: reset => tally_reset
       procedure         :: setup_stride
       procedure, public :: set_id
@@ -519,6 +521,34 @@ module tally_class
     self % nuclides(i) = bin
 
   end subroutine set_nuclide_bin
+
+!===============================================================================
+! GET_SCORE_BIN
+!===============================================================================
+
+  function get_score_bin(self, i) result(score_bin)
+
+    class(TallyClass) :: self
+    integer :: i
+    integer :: score_bin
+
+    score_bin = self % scores(i) % p % get_type()
+
+  end function get_score_bin
+
+!===============================================================================
+! GET_SCORE_MOMENT_ORDER
+!===============================================================================
+
+  function get_score_moment_order(self, i) result(moment_order)
+
+    class(TallyClass) :: self
+    integer :: i
+    integer :: moment_order
+
+    moment_order = self % scores(i) % p % get_moment_order()
+
+  end function get_score_moment_order
 
 !===============================================================================
 ! SETUP_STRIDE

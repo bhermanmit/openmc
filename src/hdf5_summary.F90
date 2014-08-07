@@ -1,6 +1,6 @@
 module hdf5_summary
 
-#ifdef HDF5
+#ifdef HDF53
 
   use ace_header,      only: Reaction, UrrData, Nuclide
   use constants

@@ -242,7 +242,7 @@ module tally
     real(8) :: global_temp(N_GLOBAL_TALLIES)
     real(8) :: dummy  ! temporary receive buffer for non-root reduces
     class(TallyClass), pointer :: t => null()
-    class(TallyResultClass), pointer :: r(:,:) => null()
+    class(TallyResultClass), pointer :: r(:,:,:) => null()
 
     do i = 1, active_tallies % size()
       t => tallies(active_tallies % get_item(i)) % p

@@ -38,7 +38,7 @@ module initialize
 
 #ifdef HDF5
   use hdf5_interface
-  use hdf5_summary,     only: hdf5_write_summary
+! use hdf5_summary,     only: hdf5_write_summary
 #endif
 
   implicit none
@@ -143,7 +143,7 @@ contains
       else
         ! Write summary information
 #ifdef HDF5
-        if (output_summary) call hdf5_write_summary()
+!       if (output_summary) call hdf5_write_summary()
 #else
         if (output_summary) call write_summary()
 #endif
@@ -270,6 +270,8 @@ contains
     type(Bank),        target :: tmpb(2)         ! temporary Bank
     integer(HID_T)            :: coordinates_t   ! HDF5 type for 3 reals
     integer(HSIZE_T)          :: dims(1) = (/3/) ! size of coordinates
+    real(8), pointer :: sum_ptr => null()
+    real(8), pointer :: sum_sq_ptr => null()
 
     ! Initialize FORTRAN interface.
     call h5open_f(hdf5_err)
@@ -277,10 +279,12 @@ contains
     ! Create the compound datatype for TallyResult
     call h5tcreate_f(H5T_COMPOUND_F, h5offsetof(c_loc(tmp(1)), &
          c_loc(tmp(2))), hdf5_tallyresult_t, hdf5_err)
+    sum_ptr => tmp(1) % get_sum_pointer()
+    sum_sq_ptr => tmp(1) % get_sum_sq_pointer()
     call h5tinsert_f(hdf5_tallyresult_t, "sum", h5offsetof(c_loc(tmp(1)), &
-         c_loc(tmp(1)%get_sum())), H5T_NATIVE_DOUBLE, hdf5_err)
+         c_loc(sum_ptr)), H5T_NATIVE_DOUBLE, hdf5_err)
     call h5tinsert_f(hdf5_tallyresult_t, "sum_sq", h5offsetof(c_loc(tmp(1)), &
-         c_loc(tmp(1)%get_sum_sq())), H5T_NATIVE_DOUBLE, hdf5_err)
+         c_loc(sum_sq_ptr)), H5T_NATIVE_DOUBLE, hdf5_err)
 
     ! Create compound type for xyz and uvw
     call h5tarray_create_f(H5T_NATIVE_DOUBLE, 1, dims, coordinates_t, hdf5_err)

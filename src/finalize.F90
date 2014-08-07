@@ -11,7 +11,8 @@ module finalize
   use timer_header,    only: time_finalize, time_total
 
 #ifdef HDF5
-  use hdf5_interface,   only: h5tclose_f, h5close_f, hdf5_err
+  use hdf5_interface,   only: h5tclose_f, h5close_f, hdf5_err, &
+                              hdf5_bank_t, hdf5_tallyresult_t
 #endif
 
   implicit none
