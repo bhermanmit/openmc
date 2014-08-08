@@ -179,6 +179,8 @@ contains
              group="tallies/tally" // to_str(i))
         call sp % write_data(t % get_total_filter_bins(), "total_filter_bins", &
              group="tallies/tally" // to_str(i))
+        call sp % write_data(t % get_total_nuclide_bins(), "total_nuclide_bins", &
+             group="tallies/tally" // to_str(i))
 
         ! Write number of filters
         call sp % write_data(t % get_n_filters(), "n_filters", &
@@ -250,10 +252,6 @@ contains
                 group="tallies/tally" // to_str(i), length=t % get_total_score_bins())
         call sp % write_data(temp_array2, "moment_order", &
                group="tallies/tally" // to_str(i), length=t % get_total_score_bins())
-
-        ! Write number of user score bins
-!       call sp % write_data(t % get_n_user_score_bins(), "n_user_score_bins", &
-!            group="tallies/tally" // to_str(i))
         deallocate(temp_array)
         deallocate(temp_array2)
 
@@ -555,9 +553,13 @@ contains
     integer                 :: j
     integer                 :: length(4)
     integer                 :: int_array(3)
-    integer, allocatable    :: temp_array(:)
+    integer, allocatable    :: int_allarray(:)
     logical                 :: source_present
     real(8)                 :: real_array(3)
+    real(8), allocatable    :: real_allarray(:)
+    class(TallyClass), pointer :: t => null()
+    class(TallyFilterClass), pointer :: f => null()
+    class(TallyResultClass), pointer :: r(:,:,:) => null()
 
     ! Write message
     message = "Loading state point " // trim(path_state_point) // "..."
@@ -675,90 +677,90 @@ contains
     call sp % read_data(n_tallies, "n_tallies", group="tallies")
 
     ! Read in tally metadata
-!    TALLY_METADATA: do i = 1, n_tallies
-!
-!      ! Get pointer to tally
-!      t => tallies(i)
-!
-!      ! Read tally id
-!      call sp % read_data(t % id, "id", group="tallies/tally" // to_str(i))
-!
-!      ! Read number of realizations
-!      call sp % read_data(t % n_realizations, "n_realizations", &
-!           group="tallies/tally" // to_str(i))
-!
-!      ! Read size of tally results
-!      call sp % read_data(int_array(1), "total_score_bins", &
-!           group="tallies/tally" // to_str(i))
-!      call sp % read_data(int_array(2), "total_filter_bins", &
-!           group="tallies/tally" // to_str(i))
-!
-!      ! Check size of tally results array
-!      if (int_array(1) /= t % total_score_bins .and. &
-!          int_array(2) /= t % total_filter_bins) then
-!        message = "Input file tally structure is different from restart."
-!        call fatal_error()
-!      end if
-!
-!      ! Read number of filters
-!      call sp % read_data(t % n_filters, "n_filters", &
-!           group="tallies/tally" // to_str(i))
-!
-!      ! Read filter information
-!      FILTER_LOOP: do j = 1, t % n_filters
-!
-!        ! Read type of filter
-!        call sp % read_data(t % filters(j) % type, "type", &
-!             group="tallies/tally" // trim(to_str(i)) // "/filter" // to_str(j))
-!
-!        ! Read number of bins for this filter
-!        call sp % read_data(t % filters(j) % n_bins, "n_bins", &
-!             group="tallies/tally" // trim(to_str(i)) // "/filter" // to_str(j))
-!
-!        ! Read bins
-!        if (t % filters(j) % type == FILTER_ENERGYIN .or. &
-!            t % filters(j) % type == FILTER_ENERGYOUT) then
-!          call sp % read_data(t % filters(j) % real_bins, "bins", &
-!               group="tallies/tally" // trim(to_str(i)) // "/filter" // to_str(j), &
-!               length=size(t % filters(j) % real_bins))
-!        else
-!          call sp % read_data(t % filters(j) % int_bins, "bins", &
-!               group="tallies/tally" // trim(to_str(i)) // "/filter" // to_str(j), &
-!               length=size(t % filters(j) % int_bins))
-!        end if
-!
-!      end do FILTER_LOOP
-!
-!      ! Read number of nuclide bins
-!      call sp % read_data(t % n_nuclide_bins, "n_nuclide_bins", &
-!           group="tallies/tally" // to_str(i))
-!
-!      ! Set up nuclide bin array and then write
-!      allocate(temp_array(t % n_nuclide_bins))
-!      call sp % read_data(temp_array, "nuclide_bins", &
-!           group="tallies/tally" // to_str(i), length=t % n_nuclide_bins)
-!      NUCLIDE_LOOP: do j = 1, t % n_nuclide_bins
-!        if (temp_array(j) > 0) then
-!          nuclides(t % nuclide_bins(j)) % zaid = temp_array(j)
-!        else
-!          t % nuclide_bins(j) = temp_array(j)
-!        end if
-!      end do NUCLIDE_LOOP
-!      deallocate(temp_array)
-!
-!      ! Write number of score bins, score bins, and scatt order
-!      call sp % read_data(t % n_score_bins, "n_score_bins", &
-!           group="tallies/tally" // to_str(i))
-!      call sp % read_data(t % score_bins, "score_bins", &
-!           group="tallies/tally" // to_str(i), length=t % n_score_bins)
-!      call sp % read_data(t % moment_order, "moment_order", &
-!           group="tallies/tally" // to_str(i), length=t % n_score_bins)
-!
-!      ! Write number of user score bins
-!      call sp % read_data(t % n_user_score_bins, "n_user_score_bins", &
-!           group="tallies/tally" // to_str(i))
-!
-!    end do TALLY_METADATA
+    TALLY_METADATA: do i = 1, n_tallies
+
+      ! Get pointer to tally
+      t => tallies(i) % p
+
+      ! Read tally id
+      call sp % read_data(int_array(1), "id", group="tallies/tally" // to_str(i))
+
+      ! Read number of realizations
+      call sp % read_data(int_array(1), "n_realizations", &
+           group="tallies/tally" // to_str(i))
+      call t % set_n_realizations(int_array(1))
+
+      ! Read size of tally results
+      call sp % read_data(int_array(1), "total_score_bins", &
+           group="tallies/tally" // to_str(i))
+      call sp % read_data(int_array(2), "total_filter_bins", &
+           group="tallies/tally" // to_str(i))
+      call sp % read_data(int_array(3), "total_nuclide_bins", &
+           group="tallies/tally" // to_str(i))
+
+      ! Check size of tally results array
+      if (int_array(1) /= t % get_total_score_bins() .and. &
+          int_array(2) /= t % get_total_filter_bins() .and. &
+          int_array(3) /= t % get_total_nuclide_bins()) then
+        message = "Input file tally structure is different from restart."
+        call fatal_error()
+      end if
+
+      ! Read number of filters
+      call sp % read_data(int_array(1), "n_filters", &
+           group="talies/tally" // to_str(i))
+
+      ! Read filter information
+      FILTER_LOOP: do j = 1, int_array(1)
+        f => t % get_filter(j)
+
+        ! Read type of filter
+        call sp % read_data(int_array(1), "type", &
+             group="tallies/tally" // trim(to_str(i)) // "/filter" // to_str(j))
+
+        ! Read number of bins for this filter
+        call sp % read_data(int_array(1), "n_bins", &
+             group="tallies/tally" // trim(to_str(i)) // "/filter" // to_str(j))
+
+        ! Read bins
+        if (f % get_type() == FILTER_ENERGYIN .or. &
+            f % get_type() == FILTER_ENERGYOUT) then
+          allocate(real_allarray(int_array(1)))
+          call sp % read_data(real_allarray, "bins", &
+               group="tallies/tally" // trim(to_str(i)) // "/filter" // to_str(j), &
+               length=int_array(1))
+          deallocate(real_allarray)
+        else
+          allocate(int_allarray(int_array(1)))
+          call sp % read_data(int_allarray, "bins", &
+               group="tallies/tally" // trim(to_str(i)) // "/filter" // to_str(j), &
+               length=int_array(1))
+          deallocate(int_allarray)
+        end if
+
+      end do FILTER_LOOP
+
+      ! Read number of nuclide bins
+      call sp % read_data(int_array(1), "n_nuclide_bins", &
+           group="tallies/tally" // to_str(i))
+
+      ! Set up nuclide bin array and then write
+      allocate(int_allarray(int_array(1)))
+      call sp % read_data(int_allarray, "nuclide_bins", &
+           group="tallies/tally" // to_str(i), length=int_array(1))
+      deallocate(int_allarray)
+
+      ! Write number of score bins, score bins, and scatt order
+      call sp % read_data(int_array(1), "n_score_bins", &
+           group="tallies/tally" // to_str(i))
+      allocate(int_allarray(int_array(1)))
+      call sp % read_data(int_allarray, "score_bins", &
+           group="tallies/tally" // to_str(i), length=int_array(1))
+      call sp % read_data(int_allarray, "moment_order", &
+           group="tallies/tally" // to_str(i), length=int_array(1))
+      deallocate(int_allarray)
+
+    end do TALLY_METADATA
 
     ! Check for source in statepoint if needed
     call sp % read_data(int_array(1), "source_present")
@@ -775,40 +777,41 @@ contains
     end if
 
     ! Read tallies to master
-!    if (master) then
-!
-!      ! Read number of realizations for global tallies
-!      call sp % read_data(n_realizations, "n_realizations", collect=.false.)
-!
-!      ! Read number of global tallies
-!      call sp % read_data(int_array(1), "n_global_tallies", collect=.false.)
-!      if (int_array(1) /= N_GLOBAL_TALLIES) then
-!        message = "Number of global tallies does not match in state point."
-!        call fatal_error()
-!      end if
-!
-!      ! Read global tally data
-!      call sp % read_tally_result(global_tallies, "global_tallies", &
-!           n1=N_GLOBAL_TALLIES, n2=1)
-!
-!      ! Check if tally results are present
-!      call sp % read_data(int_array(1), "tallies_present", group="tallies", collect=.false.)
-!
-!      ! Read in sum and sum squared
-!      if (int_array(1) == 1) then
-!        TALLY_RESULTS: do i = 1, n_tallies
-!
-!          ! Set pointer to tally
-!          t => tallies(i)
-!
-!          ! Read sum and sum_sq for each bin
-!          call sp % read_tally_result(t % results, "results", &
-!               group="tallies/tally" // to_str(i), &
-!               n1=size(t % results, 1), n2=size(t % results, 2))
-!
-!        end do TALLY_RESULTS
-!      end if
-!    end if
+     if (master) then
+ 
+       ! Read number of realizations for global tallies
+       call sp % read_data(n_realizations, "n_realizations", collect=.false.)
+ 
+       ! Read number of global tallies
+       call sp % read_data(int_array(1), "n_global_tallies", collect=.false.)
+       if (int_array(1) /= N_GLOBAL_TALLIES) then
+         message = "Number of global tallies does not match in state point."
+         call fatal_error()
+       end if
+ 
+       ! Read global tally data
+       call sp % read_tally_result(global_tallies, "global_tallies", &
+            n1=N_GLOBAL_TALLIES, n2=1, n3=1)
+ 
+       ! Check if tally results are present
+       call sp % read_data(int_array(1), "tallies_present", group="tallies", collect=.false.)
+ 
+       ! Read in sum and sum squared
+       if (int_array(1) == 1) then
+         TALLY_RESULTS: do i = 1, n_tallies
+ 
+           ! Set pointer to tally
+           t => tallies(i) % p
+           call t % get_results_pointer(r)
+
+           ! Read sum and sum_sq for each bin
+           call sp % read_tally_result(r, "results", &
+                group="tallies/tally" // to_str(i), &
+                n1=size(r, 1), n2=size(r, 2), n3=size(r, 3))
+ 
+         end do TALLY_RESULTS
+       end if
+     end if
 
     ! Read source if in eigenvalue mode
     if (run_mode == MODE_EIGENVALUE) then

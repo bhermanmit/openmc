@@ -238,7 +238,7 @@ module tally
     integer :: m      ! number of score bins
     integer :: o      ! number of nuclide bins
     integer :: n_bins ! total number of bins
-    real(8), allocatable :: tally_temp(:,:) ! contiguous array of results
+    real(8), allocatable :: tally_temp(:,:,:) ! contiguous array of results
     real(8) :: global_temp(N_GLOBAL_TALLIES)
     real(8) :: dummy  ! temporary receive buffer for non-root reduces
     class(TallyClass), pointer :: t => null()

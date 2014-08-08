@@ -188,6 +188,8 @@ contains
     integer(MPI_ADDRESS_KIND) :: result_base_disp ! Base displacement
     integer(MPI_ADDRESS_KIND) :: lower_bound     ! Lower bound for TallyResult
     integer(MPI_ADDRESS_KIND) :: extent          ! Extent for TallyResult
+    real(8), pointer :: sum_ptr => null()
+    real(8), pointer :: sum_sq_ptr => null()
     type(Bank)       :: b
     type(TallyResultClass) :: tr
 
@@ -231,8 +233,10 @@ contains
     ! CREATE MPI_TALLYRESULT TYPE
 
     ! Determine displacements for MPI_BANK type
-    call MPI_GET_ADDRESS(tr % get_value(), result_base_disp, mpi_err)
-    call MPI_GET_ADDRESS(tr % get_sum(), result_disp(1), mpi_err)
+    sum_ptr => tr % get_sum_pointer()
+    sum_sq_ptr => tr % get_sum_sq_pointer()
+    call MPI_GET_ADDRESS(sum_ptr, result_base_disp, mpi_err)
+    call MPI_GET_ADDRESS(sum_sq_ptr, result_disp(1), mpi_err)
 
     ! Adjust displacements
     result_disp = result_disp - result_base_disp

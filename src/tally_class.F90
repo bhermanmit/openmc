@@ -67,6 +67,7 @@ module tally_class
       procedure         :: get_total_nuclide_bins
       procedure, public :: get_results_pointer
       procedure, public :: get_n_realizations
+      procedure, public :: set_n_realizations
       procedure         :: set_filter_index
       procedure         :: setup_filter_indices
       procedure, public :: get_nuclide_bin
@@ -493,6 +494,19 @@ module tally_class
     n_realizations = self % n_realizations
 
   end function get_n_realizations
+
+!===============================================================================
+! SET_N_REALIZATIONS
+!===============================================================================
+
+  subroutine set_n_realizations(self, n_realizations)
+
+    class(TallyClass), intent(inout) :: self
+    integer, intent(in) :: n_realizations
+
+    self % n_realizations = n_realizations
+
+  end subroutine set_n_realizations
 
 !===============================================================================
 ! GET_NUCLIDE_BIN

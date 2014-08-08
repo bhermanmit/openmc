@@ -1870,68 +1870,70 @@ contains
 ! READ_TALLY_RESULT reads OpenMC TallyResult data
 !===============================================================================
 
-  subroutine read_tally_result(self, buffer, name, group, n1, n2)
+  subroutine read_tally_result(self, buffer, name, group, n1, n2, n3)
 
     character(*),      intent(in), optional  :: group  ! HDF5 group name
     character(*),      intent(in)            :: name   ! name of data
-    integer,           intent(in)            :: n1, n2 ! TallyResult dims
-    type(TallyResultClass), intent(inout), target :: buffer(n1, n2) ! read data here
+    integer,           intent(in)            :: n1, n2, n3 ! TallyResult dims
+    type(TallyResultClass), intent(inout), target :: buffer(n1, n2, n3) ! read data here
     class(BinaryOutput) :: self
 
-!    character(len=MAX_WORD_LEN) :: name_  ! HDF5 dataset name
-!    character(len=MAX_WORD_LEN) :: group_ ! HDF5 group name
-!
-!#ifndef HDF5
-!# ifndef MPI
-!    integer :: j,k ! iteration counters
-!# endif
-!#endif
-!
-!    ! Set name
-!    name_ = trim(name)
-!
-!    ! Set group
-!    if (present(group)) then
-!      group_ = trim(group)
-!    end if
-!
-!#ifdef HDF5
-!
-!    ! Open up sub-group if present
-!    if (present(group)) then
-!      call hdf5_open_group(self % hdf5_fh, group_, self % hdf5_grp)
-!    else
-!      self % hdf5_grp = self % hdf5_fh
-!    end if
-!
-!    ! Open the dataset
-!    call h5dopen_f(self % hdf5_grp, name, dset, hdf5_err)
-!
-!    ! Set pointer to first value and write
-!    f_ptr = c_loc(buffer(1,1))
-!    call h5dread_f(dset, hdf5_tallyresult_t, f_ptr, hdf5_err)
-!
-!    ! Close ids
-!    call h5dclose_f(dset, hdf5_err)
-!    if (present(group)) call hdf5_close_group(self % hdf5_grp)
-!
-!# elif MPI
-!
-!    ! Write out tally buffer
-!    call MPI_FILE_READ(self % unit_fh, buffer, n1*n2, MPI_TALLYRESULT, &
-!         MPI_STATUS_IGNORE, mpiio_err)
-!
-!#else
-!
-!    ! Read tally result
-!    do k = 1, n2
-!      do j = 1, n1
-!        read(self % unit_fh) buffer(j,k) % sum
-!        read(self % unit_fh) buffer(j,k) % sum_sq
-!      end do
-!    end do
-!
-!#endif 
+    character(len=MAX_WORD_LEN) :: name_  ! HDF5 dataset name
+    character(len=MAX_WORD_LEN) :: group_ ! HDF5 group name
+
+#ifndef HDF5
+# ifndef MPI
+    integer :: i,j,k ! iteration counters
+# endif
+#endif
+
+    ! Set name
+    name_ = trim(name)
+
+    ! Set group
+    if (present(group)) then
+      group_ = trim(group)
+    end if
+
+#ifdef HDF5
+
+    ! Open up sub-group if present
+    if (present(group)) then
+      call hdf5_open_group(self % hdf5_fh, group_, self % hdf5_grp)
+    else
+      self % hdf5_grp = self % hdf5_fh
+    end if
+
+    ! Open the dataset
+    call h5dopen_f(self % hdf5_grp, name, dset, hdf5_err)
+
+    ! Set pointer to first value and write
+    f_ptr = c_loc(buffer(1,1,1))
+    call h5dread_f(dset, hdf5_tallyresult_t, f_ptr, hdf5_err)
+
+    ! Close ids
+    call h5dclose_f(dset, hdf5_err)
+    if (present(group)) call hdf5_close_group(self % hdf5_grp)
+
+# elif MPI
+
+    ! Read tally buffer
+    call MPI_FILE_READ(self % unit_fh, buffer, n1*n2*n3, MPI_TALLYRESULT, &
+         MPI_STATUS_IGNORE, mpiio_err)
+
+#else
+
+    ! Read tally result
+    do k = 1, n3
+      do j = 1, n2
+        do i = 1, n1
+          read(self % unit_fh) buffer(i,j,k) % sum
+          read(self % unit_fh) buffer(i,j,k) % sum_sq
+        end do
+      end do
+    end do
+
+#endif 
    
   end subroutine read_tally_result
 

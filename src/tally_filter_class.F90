@@ -568,6 +568,10 @@ module tally_filter_class
     ! Associate mesh
     self % mesh => mesh
 
+    ! Set mesh as bins
+    allocate(self % int_bins(1))
+    self % int_bins(1) = self % mesh % id
+
   end subroutine mesh_filter_set_bins
 
 !===============================================================================
