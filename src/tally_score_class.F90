@@ -71,6 +71,15 @@ module tally_score_class
     module procedure nufission_score_init
   end interface
 
+  ! Current score type
+  type, extends(TallyScoreClass), public :: CurrentScoreClass
+    private
+    contains
+      procedure, public, nopass :: score_match => current_score_match
+      procedure, public, nopass :: get_response => current_get_response
+      procedure, public, nopass :: get_weight => current_get_weight
+  end type CurrentScoreClass
+
   contains
 
 !*******************************************************************************
@@ -272,5 +281,67 @@ module tally_score_class
     weight = p % wgt
 
   end function nufission_get_weight
+
+!*******************************************************************************
+!*******************************************************************************
+! Current score methods
+!*******************************************************************************
+!*******************************************************************************
+
+!===============================================================================
+! CURRENT_SCORE_INIT allocates and sets up a CurrentScoreClass instance
+!===============================================================================
+
+  function current_score_init() result(self)
+
+    class(CurrentScoreClass), pointer :: self
+
+    ! Create object
+    allocate(self)
+
+    ! Set type of filter
+    self % type = SCORE_CURRENT
+
+  end function current_score_init
+
+!===============================================================================
+! CURRENT_SCORE_MATCH checks for a current event
+!===============================================================================
+
+  function current_score_match(p) result(match)
+
+    type(Particle) :: p
+    logical :: match
+
+    ! Should evaluate to true always
+    match = (p % event == EVENT_SCATTER) .or. (p % event /= EVENT_SCATTER)
+
+  end function current_score_match
+
+!===============================================================================
+! CURRENT_GET_RESPONSE gets response for a current score
+!===============================================================================
+
+  function current_get_response(i_nuclide) result(response)
+
+    integer :: i_nuclide
+    real(8) :: response
+
+    response = ONE
+
+  end function current_get_response
+
+!===============================================================================
+! CURRENT_GET_WEIGHT returns the weight for a CurrentScoreClass instance
+!===============================================================================
+
+  function current_get_weight(p) result(weight)
+
+    type(Particle) :: p
+    real(8) :: weight
+
+    weight = p % wgt
+
+  end function current_get_weight
 
 end module tally_score_class

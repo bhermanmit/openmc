@@ -29,6 +29,7 @@ module tally_class
     character(len=MAX_LINE_LEN) :: label = ""
     integer :: estimator ! type of tally estimator
     integer :: id ! ID of tally
+    integer :: type
     integer :: i_filter = 1  ! Current filter
     integer :: i_score = 1  ! Current score
     integer :: n_filters = 0 ! Number of filters
@@ -138,6 +139,19 @@ module tally_class
   ! Constructor call for collision tally
   interface CollisionTallyClass
     module procedure collision_tally_init
+  end interface
+
+  ! Partial Current tally 
+  type, extends(TallyClass), public :: CurrentTallyClass
+    private
+    contains
+      procedure, public :: score => current_tally_score
+      procedure, public :: add_surface_filter => current_add_surface_filter
+  end type CurrentTallyClass
+
+  ! Constructor call for collision tally
+  interface CurrentTallyClass
+    module procedure current_tally_init
   end interface
 
   !====================================
@@ -1520,6 +1534,70 @@ module tally_class
     end if
 
   end subroutine collision_tally_score
+
+!*******************************************************************************
+!*******************************************************************************
+! Current tally methods
+!*******************************************************************************
+!*******************************************************************************
+
+!===============================================================================
+! CURRENT_TALLY_INIT initializes an CurrentTallyClass
+!===============================================================================
+
+  function current_tally_init() result(self)
+
+    class(CurrentTallyClass), pointer :: self
+
+    ! Allocate
+    allocate(self)
+
+    ! Set the tally estimator
+    self % estimator = ESTIMATOR_ANALOG
+
+    ! Set the tally type
+    self % type = TALLY_SURFACE_CURRENT
+
+  end function current_tally_init
+
+!===============================================================================
+! CURRENT_ADD_SURFACE_FILTER
+!===============================================================================
+
+  subroutine current_add_surface_filter(self)
+
+    class(CurrentTallyClass), intent(inout) :: self
+
+    integer :: n_bins
+    integer, allocatable :: int_bins(:)
+    class(SurfaceFilterClass), pointer :: f => null()
+    type(StructuredMesh), pointer :: m => null()
+
+    m => self % mesh_filter % get_mesh_pointer()
+    f => SurfaceFilterClass()
+    n_bins = 2 * m % n_dimension
+    allocate(int_bins(n_bins))
+    if (m % n_dimension == 2) then
+      int_bins = (/ IN_RIGHT, OUT_RIGHT, IN_FRONT, OUT_FRONT /)
+    elseif (m % n_dimension == 3) then
+      int_bins = (/ IN_RIGHT, OUT_RIGHT, IN_FRONT, OUT_FRONT, &
+                    IN_TOP, OUT_TOP /)
+    end if
+    call f % set_bins(int_bins, n_bins)
+    deallocate(int_bins)
+
+  end subroutine current_add_surface_filter
+
+!===============================================================================
+! CURRENT_TALLY_SCORE
+!===============================================================================
+
+  subroutine current_tally_score(self, p)
+ 
+    class(CurrentTallyClass), intent(inout) :: self
+    type(Particle), target, intent(in) :: p
+
+  end subroutine current_tally_score
 
 !*******************************************************************************
 !*******************************************************************************

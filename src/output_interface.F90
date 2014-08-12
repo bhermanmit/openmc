@@ -1880,6 +1880,7 @@ contains
 
     character(len=MAX_WORD_LEN) :: name_  ! HDF5 dataset name
     character(len=MAX_WORD_LEN) :: group_ ! HDF5 group name
+    real(8) :: temp_real
 
 #ifndef HDF5
 # ifndef MPI
@@ -1927,8 +1928,10 @@ contains
     do k = 1, n3
       do j = 1, n2
         do i = 1, n1
-          read(self % unit_fh) buffer(i,j,k) % sum
-          read(self % unit_fh) buffer(i,j,k) % sum_sq
+          read(self % unit_fh) temp_real
+          call buffer(i,j,k) % set_sum(temp_real)
+          read(self % unit_fh) temp_real
+          call buffer(i,j,k) % set_sum_sq(temp_real)
         end do
       end do
     end do

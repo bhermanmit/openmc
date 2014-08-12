@@ -2029,6 +2029,81 @@ contains
       call t % set_id(int_scalar)
 
       ! =======================================================================
+      ! READ DATA FOR SCORES
+
+      ! Process tally scores
+      if (check_for_node(node_tal, "scores")) then
+
+        ! Read string array from input
+        n_words = get_arraysize_string(node_tal, "scores")
+        allocate(sarray(n_words))
+        call get_node_array(node_tal, "scores", sarray)
+
+        ! Handle moment stuff here in future
+
+        ! Allocate scores
+        n_scores = n_words
+        call t % allocate_scores(n_scores)
+
+        ! Loop arounds scores and initialize
+        READ_SCORES: do j = 1, n_scores
+
+          call lower_case(sarray(j))
+          select case(sarray(j))
+          case('total')
+
+            ! Allocate a total score
+            s => TotalScoreClass() 
+
+          case('nu-fission')
+
+            ! Allocate a nu-fission score
+            s => NuFissionScoreClass()
+
+          case('current')
+
+            ! Check to make sure that current is the only desired response
+            ! for this tally
+            if (n_scores > 1) then
+              message = "Cannot tally other scoring functions in the same &
+                   &tally as surface currents. Separate other scoring &
+                   &functions into a distinct tally."
+              call fatal_error()
+            end if
+
+            ! Deallocate tally
+            deallocate(t)
+
+            ! Create a current tally
+            tallies(i) % p => CurrentTallyClass()
+            t => tallies(i) % p
+
+          case default
+
+            ! Specified tally score is invalid, raise error
+            message = "Unknown score type '" // &
+                 trim(sarray(j)) // "' on tally "
+            call fatal_error()
+          
+          end select
+
+          ! Add score to tally instance
+          call t % add_score(s)
+
+        end do READ_SCORES
+
+        ! Deallocate temporary string array of scores
+        deallocate(sarray)
+
+      else
+
+        ! Error if there are no scores specified for a tally
+        message = "No <scores> specified on tally "
+        call fatal_error()
+
+      end if
+
+      ! =======================================================================
       ! READ DATA FOR FILTERS
 
       ! Get pointer list to XML <filter> and get number of filters
@@ -2039,7 +2114,12 @@ contains
       if (n_filters /= 0) then
 
         ! Allocate filters in tally instance
-        call t % allocate_filters(n_filters)
+        select type(t)
+        type is (CurrentTallyClass)
+          call t % allocate_filters(n_filters + 1)
+        class default
+          call t % allocate_filters(n_filters)
+        end select
 
         READ_FILTERS: do j = 1, n_filters
 
@@ -2121,7 +2201,12 @@ contains
             int_bins(1) = mesh_dict % get_key(int_bins(1))
 
             ! Set up mesh bins
-            call f % set_bins(meshes(int_bins(1)))
+            select type(t)
+            type is(CurrentTallyClass)
+              call f % set_bins(meshes(int_bins(1)), surface=.true.)
+            class default
+              call f % set_bins(meshes(int_bins(1)), surface=.false.)
+            end select
             deallocate(int_bins)
 
           end select
@@ -2130,65 +2215,15 @@ contains
           call t % add_filter(f)
 
         end do READ_FILTERS
-      end if
 
-      ! =======================================================================
-      ! READ DATA FOR SCORES
-
-      ! Process tally scores
-      if (check_for_node(node_tal, "scores")) then
-
-        ! Read string array from input
-        n_words = get_arraysize_string(node_tal, "scores")
-        allocate(sarray(n_words))
-        call get_node_array(node_tal, "scores", sarray)
-
-        ! Handle moment stuff here in future
-
-        ! Allocate scores
-        n_scores = n_words
-        call t % allocate_scores(n_scores)
-
-        ! Loop arounds scores and initialize
-        READ_SCORES: do j = 1, n_scores
-
-          call lower_case(sarray(j))
-          select case(sarray(j))
-          case('total')
-
-            ! Allocate a total score
-            s => TotalScoreClass() 
-
-          case('nu-fission')
-
-            ! Allocate a nu-fission score
-            s => NuFissionScoreClass()
-
-          case default
-
-            ! Specified tally score is invalid, raise error
-            message = "Unknown score type '" // &
-                 trim(sarray(j)) // "' on tally "
-            call fatal_error()
-          
-          end select
-
-          ! Add score to tally instance
-          call t % add_score(s)
-
-        end do READ_SCORES
-
-        ! Deallocate temporary string array of scores
-        deallocate(sarray)
-
-      else
-
-        ! Error if there are no scores specified for a tally
-        message = "No <scores> specified on tally "
-        call fatal_error()
+        ! Add surface filter
+        select type(t)
+        type is (CurrentTallyClass)
+          call t % add_surface_filter()
+        end select
 
       end if
-
+stop
       ! =======================================================================
       ! READ DATA FOR NUCLIDES
 

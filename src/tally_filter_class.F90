@@ -89,6 +89,17 @@ module tally_filter_class
     module procedure mesh_filter_init
   end interface
 
+  ! Surface filter
+  type, extends(TallyFilterClass), public :: SurfaceFilterClass
+    private
+    contains
+      procedure, public :: get_filter_index => surface_filter_get_index
+      procedure, public :: set_bins => surface_filter_set_bins
+  end type SurfaceFilterClass
+  interface SurfaceFilterClass
+    module procedure surface_filter_init
+  end interface
+
   contains
 
 !*******************************************************************************
@@ -557,13 +568,18 @@ module tally_filter_class
 ! MESH_FILTER_SET_BINS is a special routine to set mesh filter bins
 !===============================================================================
 
-  subroutine mesh_filter_set_bins(self, mesh)
+  subroutine mesh_filter_set_bins(self, mesh, surface)
 
     class(MeshFilterClass), intent(inout) :: self
     type(StructuredMesh), target, intent(in) :: mesh
+    logical, intent(in) :: surface
 
     ! Calculate total number of bins in mesh
-    self % n_bins = product(mesh % dimension)
+    if (surface) then
+      self % n_bins = product(mesh % dimension + 1)
+    else
+      self % n_bins = product(mesh % dimension)
+    end if
 
     ! Associate mesh
     self % mesh => mesh
@@ -586,5 +602,55 @@ module tally_filter_class
     m => self % mesh
 
   end function mesh_filter_get_pointer
+
+!*******************************************************************************
+!*******************************************************************************
+! Surface filter methods
+!*******************************************************************************
+!*******************************************************************************
+
+!===============================================================================
+! SURFACE_FILTER_INIT allocates and sets up a SurfaceFilterClass instance
+!===============================================================================
+
+  function surface_filter_init() result(self)
+
+    class(SurfaceFilterClass), pointer :: self
+
+    ! Create object
+    allocate(self)
+
+    ! Set type of filter
+    self % type = FILTER_SURFACE
+
+  end function surface_filter_init
+
+!===============================================================================
+! SURFACE_FILTER_SET_BINS
+!===============================================================================
+
+  subroutine surface_filter_set_bins(self, bins, n_bins)
+
+    class(SurfaceFilterClass), intent(inout) :: self
+    integer :: bins(:)
+    integer :: n_bins
+
+    self % n_bins = n_bins
+    allocate(self % int_bins(n_bins))
+    self % int_bins = bins
+
+  end subroutine surface_filter_set_bins
+
+!===============================================================================
+! SURFACE_FILTER_GET_INDEX returns the index for a surface filter
+!===============================================================================
+
+  function surface_filter_get_index(self, p) result(filter_index)
+
+    class(SurfaceFilterClass) :: self
+    type(Particle) :: p
+    integer :: filter_index
+
+  end function surface_filter_get_index
 
 end module tally_filter_class

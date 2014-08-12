@@ -13,6 +13,8 @@ module tally_result_class
       procedure, public :: accumulate => accumulate_result
       procedure, public :: add => add_result
       procedure, public :: confidence => confidence_result
+      procedure, public :: set_sum
+      procedure, public :: set_sum_sq
       procedure, public :: get_sum
       procedure, public :: get_sum_sq
       procedure, public :: get_sum_pointer
@@ -52,6 +54,32 @@ module tally_result_class
     self % value = ZERO
 
   end subroutine accumulate_result
+
+!===============================================================================
+! SET_SUM
+!===============================================================================
+
+  subroutine set_sum(self, sum_)
+
+    class(TallyResultClass) :: self
+    real(8) :: sum_
+
+    self % sum = sum_
+
+  end subroutine set_sum
+
+!===============================================================================
+! SET_SUM_SQ
+!===============================================================================
+
+  subroutine set_sum_sq(self, sum_sq)
+
+    class(TallyResultClass) :: self
+    real(8) :: sum_sq
+
+    self % sum_sq = sum_sq
+
+  end subroutine set_sum_sq
 
 !===============================================================================
 ! GET_SUM
