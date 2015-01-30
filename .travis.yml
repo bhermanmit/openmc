@@ -4,6 +4,9 @@ before_install:
   - export FC=gfortran
 
 before_script:
-  - ./data/get_nndc_data.py
-  - export CROSS_SECTIONS=./data/nndc/cross_sections.xml
+  - cd data
+  - ./get_nndc_data.py
+  - export CROSS_SECTIONS=$PWD/nndc/cross_sections.xml
+  - cd ..
+  - echo $CROSS_SECTIONS
   - ls $CROSS_SECTIONS
