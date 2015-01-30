@@ -5,7 +5,7 @@ before_install:
 
 before_script:
   - cd data
-  - ./get_nndc_data.py
+  - ./get_nndc_data.py --batch
   - export CROSS_SECTIONS=$PWD/nndc/cross_sections.xml
   - cd ..
   - echo $CROSS_SECTIONS
