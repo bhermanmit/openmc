@@ -2,3 +2,8 @@ before_install:
   - sudo apt-get update -qq
   - sudo apt-get install -y gfortran
   - export FC=gfortran
+
+before_script:
+  - ./data/get_nndc_data.py
+  - export CROSS_SECTIONS=./data/nndc/cross_sections.xml
+  - ls $CROSS_SECTIONS
