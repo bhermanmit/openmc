@@ -16,7 +16,7 @@ except ImportError:
 
 cwd = os.getcwd()
 sys.path.append(os.path.join(cwd, '..', 'src', 'utils'))
-print sys.path
+print(sys.path)
 from convert_binary import ascii_to_binary
 
 baseUrl = 'http://www.nndc.bnl.gov/endf/b7.1/aceFiles/'
