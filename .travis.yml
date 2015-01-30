@@ -1,4 +1,4 @@
 before_install:
-    sudo apt-get update -qq
-    sudo apt-get install -y gfortran
-    export FC=gfortran
+  - sudo apt-get update -qq
+  - sudo apt-get install -y gfortran
+  - export FC=gfortran
