@@ -520,4 +520,4 @@ for test in tests:
         print(' '*len(test)+tests[test].msg)
         return_code = 1
 
-return return_code
+sys.exit(return_code)
