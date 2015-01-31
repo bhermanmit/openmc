@@ -10,3 +10,8 @@ before_script:
   - cd ..
   - echo $CROSS_SECTIONS
   - ls $CROSS_SECTIONS
+
+script:
+  - cd tests
+  - ./run_tests -C "basic-debug"
+  - cd ..
