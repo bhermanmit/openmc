@@ -10,11 +10,8 @@ before_script:
   - ./get_nndc_data.py --batch
   - export CROSS_SECTIONS=$PWD/nndc/cross_sections.xml
   - cd ..
-  - echo $CROSS_SECTIONS
-  - ls $CROSS_SECTIONS
 
 script:
   - cd tests
-  - ./run_tests.py -C "basic-debug"
-  - cat Last*
+  - ./run_tests.py -C "basic-debug" -j 4
   - cd ..
