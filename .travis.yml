@@ -13,5 +13,5 @@ before_script:
 
 script:
   - cd tests
-  - ./run_tests -C "basic-debug"
+  - ./run_tests.py -C "basic-debug"
   - cd ..
