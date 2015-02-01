@@ -8,7 +8,7 @@ before_install:
   - export FC=gfortran
   - wget http://www.mpich.org/static/downloads/3.1.3/mpich-3.1.3.tar.gz
   - tar -xzvf mpich-3.1.3.tar.gz 
-  - cd mpich-3.1.3.tar.gz
+  - cd mpich-3.1.3
   - ./configure --prefix=../mpich
   - make -j
   - make install
