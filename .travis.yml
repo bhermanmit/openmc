@@ -5,6 +5,7 @@ before_install:
   - sudo apt-get install -qq -y python-h5py
   - sudo apt-get install -qq -y gfortran
   - sudo apt-get install -qq -y g++
+  - echo $TRAVIS_PULL_REQUEST
   - ./tests/travis_install.sh
   - export FC=gfortran
   - export MPI_DIR=$PWD/mpich_install
