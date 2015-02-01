@@ -2,8 +2,10 @@
 
 set -ev
 
+echo $TRAVIS_PULL_REQUEST
+
 # Build HDF5 and PETSc for rest of debug tests
-if [ $TRAVIS_PULL_REQUEST ]; then
+if [ "$TRAVIS_PULL_REQUEST" == "1" ]; then
 
   # Build MPICH
   wget -q http://www.mpich.org/static/downloads/3.1.3/mpich-3.1.3.tar.gz
