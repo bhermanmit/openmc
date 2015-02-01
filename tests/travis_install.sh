@@ -9,20 +9,18 @@ wget -q http://www.mpich.org/static/downloads/3.1.3/mpich-3.1.3.tar.gz
 tar -xzvf mpich-3.1.3.tar.gz >/dev/null 2>&1
 cd mpich-3.1.3
 ./configure --prefix=$PWD/../mpich_install -q
-make -j -s
-make -s install
+make -j -s --quiet
+make -s --quiet install
 cd ..
-rm -rf mpich-3.1.3
 
 # Build PHDF5
 wget -q http://www.hdfgroup.org/ftp/HDF5/current/src/hdf5-1.8.14.tar.gz
 tar -xzvf hdf5-1.8.14.tar.gz >/dev/null 2>&1
-cd  hdf5-1.8.14
+cd  hdf5-1.8.14; mv hdf5-1.8.14 phdf5-1.8.14
 CC=../mpich_install/bin/mpicc FC=../mpich_install/bin/mpif90 ./configure --prefix=$PWD/../phdf5_install -q --enable-fortran --enable-fortran2003 --enable-parallel
-make -j -s
-make -s install
+make -j -s --quiet
+make -s --quiet install
 cd ..
-rm -rf hdf5-1.8.14
 
 # Build HDF5 and PETSc for rest of debug tests
 if [ "${TRAVIS_PULL_REQUEST}" = "true" ]; then
@@ -31,9 +29,8 @@ if [ "${TRAVIS_PULL_REQUEST}" = "true" ]; then
   tar -xzvf hdf5-1.8.14.tar.gz >/dev/null 2>&1
   cd  hdf5-1.8.14
   CC=gcc FC=gfortran ./configure --prefix=$PWD/../hdf5_install -q --enable-fortran --enable-fortran2003
-  make -j -s
-  make -s install
+  make -j -s --quiet
+  make -s --quiet install
   cd ..
-rm -rf hdf5-1.8.14
 
 fi
