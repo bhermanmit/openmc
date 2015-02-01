@@ -1,23 +1,24 @@
 before_install:
   - sudo apt-get update -qq
-  - sudo apt-get install -y python-numpy
-  - sudo apt-get install -y python-scipy
-  - sudo apt-get install -y python-h5py
-  - sudo apt-get install -y gfortran
-  - sudo apt-get install -y g++
+  - sudo apt-get install -q -y python-numpy
+  - sudo apt-get install -q -y python-scipy
+  - sudo apt-get install -q -y python-h5py
+  - sudo apt-get install -q -y gfortran
+  - sudo apt-get install -q -y g++
   - export FC=gfortran
-  - wget http://www.mpich.org/static/downloads/3.1.3/mpich-3.1.3.tar.gz
-  - tar -xzvf mpich-3.1.3.tar.gz 
+  - wget -q http://www.mpich.org/static/downloads/3.1.3/mpich-3.1.3.tar.gz
+  - tar -xzvf mpich-3.1.3.tar.gz >/dev/null 2>&1
   - cd mpich-3.1.3
-  - ./configure --prefix=$PWD/../mpich_install
-  - make -j
-  - make install
+  - ./configure --prefix=$PWD/../mpich_install -q
+  - make -j -s
+  - make -s install
   - cd ..
   - export MPI_DIR=$PWD/mpich_install
 
 before_script:
   - cd data
-  - ./get_nndc_data.py --batch
+  - echo "Downloading XS"
+  - ./get_nndc_data.py --batch > /dev/null 2>&1
   - export CROSS_SECTIONS=$PWD/nndc/cross_sections.xml
   - cd ..
 
