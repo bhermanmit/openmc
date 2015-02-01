@@ -21,6 +21,5 @@ before_script:
 script:
   - cd tests
   - export OMP_NUM_THREADS=3
-  - ./run_tests.py -C "mpi-omp-debug" -j 4
-  - cat Last*
+  - ./run_tests.py -C "phdf5-omp-debug" -j 4
   - cd ..
