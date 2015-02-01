@@ -21,5 +21,7 @@ before_script:
 script:
   - cd tests
   - export OMP_NUM_THREADS=3
-  - ./run_tests.py -C "phdf5-omp-debug" -j 4
+  - ./run_tests.py -C "phdf5-omp-debug" -j 4 2> /dev/null
   - cd ..
+  - cat tests/test_score_total/results_test*
+  - cat tests/test_score_total/results_true*
