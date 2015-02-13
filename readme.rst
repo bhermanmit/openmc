@@ -2,6 +2,8 @@
 OpenMC Monte Carlo Particle Transport Code
 ==========================================
 
+TRAVIS CI:
+
 .. image:: https://travis-ci.org/bhermanmit/openmc.svg?branch=travis
     :target: https://travis-ci.org/bhermanmit/openmc
 
