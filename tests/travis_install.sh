@@ -37,12 +37,15 @@ if [ "$TRAVIS_PULL_REQUEST" != "false" ]; then
 
   # Build PETSc
   wget -q http://ftp.mcs.anl.gov/pub/petsc/release-snapshots/petsc-lite-3.5.3.tar.gz
-  tar -xzvf petsc-lite-3.5.3.tar.gz
+  tar -xzvf petsc-lite-3.5.3.tar.gz >/dev/null 2>&1
   cd petsc-3.5.3
   ./configure --prefix=$PWD/../petsc_install -q --download-fblaslapack \
-              --with-mpi-dir=$PWD/../mpich_install --with-share-libraries=0 \
-              --with-fortran-datatypes=1
-  make -j >/dev/null 2>&1
+              --with-mpi-dir=$PWD/../mpich_install --with-share-libraries \
+              --with-fortran-datatypes
+  make PETSC_DIR=/home/bherman/Documents/openmc_testing/openmc_bhermanmit/petsc/petsc-3.5.3 \
+       PETSC_ARCH=arch-linux2-c-debug all >/dev/null 2>&1
+  make PETSC_DIR=/home/bherman/Documents/openmc_testing/openmc_bhermanmit/petsc/petsc-3.5.3 \
+       PETSC_ARCH=arch-linux2-c-debug install >/dev/null 2>&1
   make install >/dev/null 2>&1
   cd ..
 
