@@ -2,8 +2,8 @@
 OpenMC Test Suite
 =================
 
-.. image:: https://travis-ci.org/bhermanmit/openmc.svg?branch=develop
-    :target: https://travis-ci.org/bhermanmit/openmc
+[![Build Status](https://travis-ci.org/bhermanmit/openmc.svg?branch=develop)]
+                (https://travis-ci.org/bhermanmit/openmc)
 
 The purpose of this test suite is to ensure that OpenMC compiles using various
 combinations of compiler flags and options and that all user input options can
